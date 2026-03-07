@@ -13,7 +13,42 @@ from .typed_ref import (
     workx_ref,
 )
 
+from .state_transition import (
+    StateTransition,
+    StateTransitionService,
+    InvalidTransitionError,
+    TerminalStateError,
+    MissingReasonError,
+    can_transition,
+    is_terminal,
+    requires_reason,
+    ALLOWED_TRANSITIONS,
+    TERMINAL_STATES,
+)
+
+from .context_bundle import (
+    ContextBundle,
+    BundleSource,
+    ContextBundleService,
+    REBUILD_LEVELS,
+    PURPOSE_TYPES,
+    SOURCE_KINDS,
+)
+
+from .resolver import (
+    ContextRebuildResolver,
+    ResolveStatus,
+    ResolvedRef,
+    ResolveReport,
+    SummaryPayload,
+    RawPayload,
+    ResolverDiagnostics,
+    WorkxLocalResolver,
+    RAW_DESCENT_CONDITIONS,
+)
+
 __all__ = [
+    # typed_ref
     "TypedRef",
     "canonicalize_ref",
     "format_ref",
@@ -24,4 +59,32 @@ __all__ = [
     "tracker_ref",
     "validate_ref",
     "workx_ref",
+    # state_transition
+    "StateTransition",
+    "StateTransitionService",
+    "InvalidTransitionError",
+    "TerminalStateError",
+    "MissingReasonError",
+    "can_transition",
+    "is_terminal",
+    "requires_reason",
+    "ALLOWED_TRANSITIONS",
+    "TERMINAL_STATES",
+    # context_bundle
+    "ContextBundle",
+    "BundleSource",
+    "ContextBundleService",
+    "REBUILD_LEVELS",
+    "PURPOSE_TYPES",
+    "SOURCE_KINDS",
+    # context_rebuild_resolver
+    "ContextRebuildResolver",
+    "ResolveStatus",
+    "ResolvedRef",
+    "ResolveReport",
+    "SummaryPayload",
+    "RawPayload",
+    "ResolverDiagnostics",
+    "WorkxLocalResolver",
+    "RAW_DESCENT_CONDITIONS",
 ]
