@@ -150,12 +150,12 @@ class TestEntityLinking:
 
         link = service.link_issue_to_task(
             issue_ref="tracker:issue:jira:PROJ-123",
-            task_ref="workx:task:local:task_001",
+            task_ref="agent_taskstate:task:local:task_001",
             role="primary",
         )
 
         assert link.tracker_issue_ref == "tracker:issue:jira:PROJ-123"
-        assert link.workx_entity_ref == "workx:task:local:task_001"
+        assert link.agent_taskstate_entity_ref == "agent_taskstate:task:local:task_001"
         assert link.role == "primary"
 
     def test_get_issue_links(self, service, connection):
@@ -163,12 +163,12 @@ class TestEntityLinking:
         service.fetch_issue(connection.id, "PROJ-123")
         service.link_issue_to_task(
             "tracker:issue:jira:PROJ-123",
-            "workx:task:local:task_001",
+            "agent_taskstate:task:local:task_001",
             "primary",
         )
         service.link_issue_to_task(
             "tracker:issue:jira:PROJ-123",
-            "workx:task:local:task_002",
+            "agent_taskstate:task:local:task_002",
             "related",
         )
 
@@ -180,11 +180,11 @@ class TestEntityLinking:
         service.fetch_issue(connection.id, "PROJ-123")
         service.link_issue_to_task(
             "tracker:issue:jira:PROJ-123",
-            "workx:task:local:task_001",
+            "agent_taskstate:task:local:task_001",
             "primary",
         )
 
-        links = service.get_task_links("workx:task:local:task_001")
+        links = service.get_task_links("agent_taskstate:task:local:task_001")
         assert len(links) == 1
         assert links[0].tracker_issue_ref == "tracker:issue:jira:PROJ-123"
 
@@ -256,7 +256,7 @@ class TestOutboundOperations:
         result = service.post_outbound_comment(
             connection_id=connection.id,
             issue_key="PROJ-123",
-            comment="Status updated in workx",
+            comment="Status updated in agent_taskstate",
         )
 
         assert result is True
@@ -275,7 +275,7 @@ class TestSyncSuggestions:
         service.fetch_issue(connection.id, "PROJ-123")
         service.link_issue_to_task(
             "tracker:issue:jira:PROJ-123",
-            "workx:task:local:task_001",
+            "agent_taskstate:task:local:task_001",
             "primary",
         )
 
@@ -285,7 +285,7 @@ class TestSyncSuggestions:
 
         assert len(suggestions) >= 1
         assert suggestions[0].requires_confirmation is True
-        assert suggestions[0].workx_task_ref == "workx:task:local:task_001"
+        assert suggestions[0].agent_taskstate_task_ref == "agent_taskstate:task:local:task_001"
 
     def test_suggestions_no_links(self, service, connection):
         """No suggestions if no links."""
@@ -313,11 +313,11 @@ class TestIntegration:
         service.fetch_issue(connection.id, "PROJ-123")
         link = service.link_issue_to_task(
             "tracker:issue:jira:PROJ-123",
-            "workx:task:local:task_001",
+            "agent_taskstate:task:local:task_001",
         )
 
         assert link.tracker_issue_ref == "tracker:issue:jira:PROJ-123"
-        assert link.workx_entity_ref == "workx:task:local:task_001"
+        assert link.agent_taskstate_entity_ref == "agent_taskstate:task:local:task_001"
 
     def test_sync_event_tracking(self, service, connection):
         """Inbound and outbound events are tracked."""
@@ -340,7 +340,7 @@ class TestIntegration:
         assert "remote_key" in snapshot_dict
         assert "title" in snapshot_dict
 
-    def test_workx_continues_without_tracker(self, service, connection):
+    def test_agent_taskstate_continues_without_tracker(self, service, connection):
         """Workx can continue if tracker is unavailable."""
         service.fetch_issue(connection.id, "PROJ-123")
         snapshot = service.get_issue_snapshot("tracker:issue:jira:PROJ-123")

@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from .helpers import workx, create_task, create_run, cmd_run_start, cmd_run_finish, cmd_run_list
+from .helpers import agent_taskstate, create_task, create_run, cmd_run_start, cmd_run_finish, cmd_run_list
 
 
 class TestRunStart:
@@ -17,9 +17,9 @@ class TestRunStart:
 
     def test_start_run(self, empty_db):
         """Spec 5.5: Start a new run."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         output = cmd_run_start(
@@ -33,7 +33,7 @@ class TestRunStart:
         assert output["ok"] is True
         assert "id" in output["data"]
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT * FROM runs WHERE id = ?", (output["data"]["id"],)
             ).fetchone()
@@ -42,9 +42,9 @@ class TestRunStart:
 
     def test_start_run_with_input_ref(self, empty_db):
         """Start run with input reference."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         output = cmd_run_start(
@@ -53,14 +53,14 @@ class TestRunStart:
             run_type="plan",
             actor_type="human",
             actor_id="user-001",
-            input_ref="workx:context_bundle:01HACONTEXT001",
+            input_ref="agent-taskstate:context_bundle:01HACONTEXT001",
         )
 
         assert output["ok"] is True
 
     def test_start_run_nonexistent_task_returns_not_found(self, empty_db):
         """Start run on nonexistent task returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         output = cmd_run_start(
             ctx,
@@ -76,9 +76,9 @@ class TestRunStart:
     @pytest.mark.parametrize("run_type", ["plan", "execute", "review", "summarize", "sync", "manual"])
     def test_start_run_each_type(self, empty_db, run_type):
         """Start run with each valid run_type."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         output = cmd_run_start(
@@ -93,9 +93,9 @@ class TestRunStart:
 
     def test_start_run_invalid_type_returns_validation_error(self, empty_db):
         """Start run with invalid run_type returns validation_error."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         output = cmd_run_start(
@@ -115,16 +115,16 @@ class TestRunFinish:
 
     def test_finish_run_succeeded(self, empty_db):
         """Finish run with succeeded status."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             run_id = create_run(conn, task_id, status="running")
 
         output = cmd_run_finish(ctx, run_id=run_id, status="succeeded")
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT status, ended_at FROM runs WHERE id = ?", (run_id,)
             ).fetchone()
@@ -133,9 +133,9 @@ class TestRunFinish:
 
     def test_finish_run_failed(self, empty_db):
         """Finish run with failed status."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             run_id = create_run(conn, task_id, status="running")
 
@@ -145,9 +145,9 @@ class TestRunFinish:
 
     def test_finish_run_cancelled(self, empty_db):
         """Finish run with cancelled status."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             run_id = create_run(conn, task_id, status="running")
 
@@ -157,9 +157,9 @@ class TestRunFinish:
 
     def test_finish_run_with_output_ref(self, empty_db):
         """Finish run with output reference."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             run_id = create_run(conn, task_id, status="running")
 
@@ -167,14 +167,14 @@ class TestRunFinish:
             ctx,
             run_id=run_id,
             status="succeeded",
-            output_ref="workx:artifact:01HAART001",
+            output_ref="agent-taskstate:artifact:01HAART001",
         )
 
         assert output["ok"] is True
 
     def test_finish_run_nonexistent_returns_not_found(self, empty_db):
         """Finish nonexistent run returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         output = cmd_run_finish(ctx, run_id="01HNOTFOUND001", status="succeeded")
 
@@ -184,9 +184,9 @@ class TestRunFinish:
     @pytest.mark.parametrize("status", ["succeeded", "failed", "cancelled"])
     def test_finish_run_each_status(self, empty_db, status):
         """Finish run with each valid status."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             run_id = create_run(conn, task_id, status="running")
 
@@ -201,9 +201,9 @@ class TestRunList:
     @pytest.mark.skip(reason="CLI doesn't implement cmd_run_list")
     def test_list_runs(self, empty_db):
         """List all runs for a task."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_run(conn, task_id, run_type="plan", status="succeeded")
             create_run(conn, task_id, run_type="execute", status="running")
@@ -216,9 +216,9 @@ class TestRunList:
     @pytest.mark.skip(reason="CLI doesn't implement cmd_run_list")
     def test_list_runs_filter_by_status(self, empty_db):
         """Filter runs by status."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_run(conn, task_id, status="running")
             create_run(conn, task_id, status="succeeded")

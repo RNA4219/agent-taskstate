@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from .helpers import (
-    workx,
+    agent_taskstate,
     create_task,
     create_task_state,
     create_decision,
@@ -28,9 +28,9 @@ class TestExportTask:
 
     def test_export_task(self, empty_db, tmp_path):
         """Spec 14: Export task with all related data."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn, kind="feature", title="TestTask", status="done")
             create_task_state(conn, task_id, revision=3, current_step="完了")
             create_decision(conn, task_id, summary="Decision1", status="accepted")
@@ -57,9 +57,9 @@ class TestExportTask:
 
     def test_export_task_minimal(self, empty_db, tmp_path):
         """Export task with minimal data."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id)
 
@@ -79,7 +79,7 @@ class TestExportTask:
 
     def test_export_task_nonexistent_returns_not_found(self, empty_db, tmp_path):
         """Export nonexistent task returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         output_file = str(tmp_path / "export.json")
 
@@ -94,9 +94,9 @@ class TestExportFormat:
 
     def test_export_json_format(self, empty_db, tmp_path):
         """Export is valid JSON format."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn, kind="feature", title="TestTask", goal="Goal1", status="done", priority="high")
             create_task_state(conn, task_id)
 
@@ -120,9 +120,9 @@ class TestExportFileOutput:
 
     def test_export_overwrites_existing_file(self, empty_db, tmp_path):
         """Export overwrites existing file."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id)
 
@@ -145,9 +145,9 @@ class TestExportFileOutput:
     @pytest.mark.skip(reason="CLI doesn't create parent directories for export")
     def test_export_creates_directory(self, empty_db, tmp_path):
         """Export creates directory if it doesn't exist."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id)
 
@@ -164,9 +164,9 @@ class TestExportContents:
 
     def test_export_includes_all_task_fields(self, empty_db, tmp_path):
         """Export includes all task fields."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(
                 conn,
                 kind="feature",
@@ -195,9 +195,9 @@ class TestExportContents:
 
     def test_export_multiple_decisions(self, empty_db, tmp_path):
         """Export includes multiple decisions."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id)
             create_decision(conn, task_id, summary="Decision1", status="accepted")
@@ -216,9 +216,9 @@ class TestExportContents:
 
     def test_export_multiple_open_questions(self, empty_db, tmp_path):
         """Export includes multiple open questions."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id)
             create_open_question(conn, task_id, question="Question1", status="answered")

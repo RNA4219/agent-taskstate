@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from .helpers import workx, create_task, create_task_state, cmd_state_put, cmd_state_get, cmd_state_patch
+from .helpers import agent_taskstate, create_task, create_task_state, cmd_state_put, cmd_state_get, cmd_state_patch
 
 
 class TestStatePut:
@@ -17,9 +17,9 @@ class TestStatePut:
 
     def test_create_new_task_state(self, empty_db):
         """Spec 5.2: Create new task state."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         state_data = {
@@ -36,7 +36,7 @@ class TestStatePut:
         output = cmd_state_put(ctx, task_id=task_id, state_json=state_data)
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT * FROM task_states WHERE task_id = ?", (task_id,)
             ).fetchone()
@@ -46,9 +46,9 @@ class TestStatePut:
 
     def test_state_put_overwrites_existing(self, empty_db):
         """State put updates existing state and increments revision."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id, revision=5, current_step="古い状態")
 
@@ -66,7 +66,7 @@ class TestStatePut:
         output = cmd_state_put(ctx, task_id=task_id, state_json=state_data)
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT revision, current_step FROM task_states WHERE task_id = ?", (task_id,)
             ).fetchone()
@@ -79,9 +79,9 @@ class TestStateGet:
 
     def test_get_existing_task_state(self, empty_db):
         """Spec 5.2: Get existing task state."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id, revision=3, current_step="レビュー中", confidence="high")
 
@@ -93,9 +93,9 @@ class TestStateGet:
 
     def test_get_nonexistent_state_returns_not_found(self, empty_db):
         """Get state for task without state returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         output = cmd_state_get(ctx, task_id=task_id)
@@ -109,9 +109,9 @@ class TestStatePatch:
 
     def test_patch_with_matching_revision(self, empty_db):
         """Spec 12: Patch succeeds when revision matches."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id, revision=1, current_step="実装前")
 
@@ -120,7 +120,7 @@ class TestStatePatch:
         output = cmd_state_patch(ctx, task_id=task_id, expected_revision=1, patch_json=patch_data)
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT revision, current_step FROM task_states WHERE task_id = ?", (task_id,)
             ).fetchone()
@@ -129,9 +129,9 @@ class TestStatePatch:
 
     def test_patch_with_mismatched_revision_returns_conflict(self, empty_db):
         """Spec 12: Patch fails with conflict when revision mismatches."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id, revision=5, current_step="最新状態")
 
@@ -143,7 +143,7 @@ class TestStatePatch:
         assert output["error"]["code"] == "conflict"
 
         # Verify state was not updated
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT revision, current_step FROM task_states WHERE task_id = ?", (task_id,)
             ).fetchone()
@@ -151,9 +151,9 @@ class TestStatePatch:
 
     def test_patch_nonexistent_state_returns_not_found(self, empty_db):
         """Patch on task without state returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         patch_data = {"current_step": "test"}
@@ -170,9 +170,9 @@ class TestStateValidation:
     @pytest.mark.parametrize("confidence", ["low", "medium", "high"])
     def test_create_with_each_confidence(self, empty_db, confidence):
         """Create state with each valid confidence level."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         state_data = {
@@ -193,9 +193,9 @@ class TestStateConcurrency:
 
     def test_concurrent_update_conflict(self, empty_db):
         """Spec 12: Second update fails with conflict."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id, revision=1)
 
@@ -213,7 +213,7 @@ class TestStateConcurrency:
         assert output2["error"]["code"] == "conflict"
 
         # Verify final state
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT revision, current_step FROM task_states WHERE task_id = ?", (task_id,)
             ).fetchone()

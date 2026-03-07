@@ -10,7 +10,7 @@ import json
 import pytest
 
 from .helpers import (
-    workx,
+    agent_taskstate,
     create_task,
     create_task_state,
     create_decision,
@@ -26,9 +26,9 @@ class TestContextBuild:
 
     def test_build_context_bundle(self, empty_db):
         """Spec 5.6: Build a context bundle."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn, kind="feature", title="Feature1", goal="Implement", status="in_progress")
             create_task_state(conn, task_id, revision=1, current_step="実装中", confidence="high")
             create_decision(conn, task_id, summary="SQLite採用", status="accepted")
@@ -41,7 +41,7 @@ class TestContextBuild:
 
     def test_build_context_nonexistent_task_returns_not_found(self, empty_db):
         """Build context for nonexistent task returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         output = cmd_context_build(ctx, task_id="01HNOTFOUND001", build_reason="normal")
 
@@ -51,9 +51,9 @@ class TestContextBuild:
     @pytest.mark.parametrize("reason", ["normal", "ambiguity", "review", "high_risk", "recovery"])
     def test_build_context_each_reason(self, empty_db, reason):
         """Build context with each valid build_reason."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id)
 
@@ -63,9 +63,9 @@ class TestContextBuild:
 
     def test_build_context_invalid_reason_returns_validation_error(self, empty_db):
         """Build context with invalid reason returns validation_error."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id)
 
@@ -80,9 +80,9 @@ class TestContextEvidenceInclusion:
 
     def test_include_evidence_when_confidence_low(self, empty_db):
         """Include evidence when task_state.confidence is low."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(
                 conn,
@@ -94,7 +94,7 @@ class TestContextEvidenceInclusion:
         output = cmd_context_build(ctx, task_id=task_id, build_reason="normal")
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT included_evidence_refs_json FROM context_bundles WHERE id = ?",
                 (output["data"]["id"],),
@@ -104,9 +104,9 @@ class TestContextEvidenceInclusion:
 
     def test_include_evidence_when_build_reason_review(self, empty_db):
         """Include evidence when build_reason is review."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(
                 conn,
@@ -118,7 +118,7 @@ class TestContextEvidenceInclusion:
         output = cmd_context_build(ctx, task_id=task_id, build_reason="review")
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT included_evidence_refs_json FROM context_bundles WHERE id = ?",
                 (output["data"]["id"],),
@@ -128,9 +128,9 @@ class TestContextEvidenceInclusion:
 
     def test_include_evidence_when_high_priority_open_question(self, empty_db):
         """Include evidence when high priority open question exists."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(
                 conn,
@@ -143,7 +143,7 @@ class TestContextEvidenceInclusion:
         output = cmd_context_build(ctx, task_id=task_id, build_reason="normal")
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT included_evidence_refs_json FROM context_bundles WHERE id = ?",
                 (output["data"]["id"],),
@@ -157,9 +157,9 @@ class TestContextShow:
 
     def test_show_context_bundle(self, empty_db):
         """Show existing context bundle."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             bundle_id = create_context_bundle(conn, task_id, build_reason="normal")
 
@@ -171,7 +171,7 @@ class TestContextShow:
 
     def test_show_nonexistent_bundle_returns_not_found(self, empty_db):
         """Show nonexistent bundle returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         output = cmd_context_show(ctx, bundle_id="01HNOTFOUND001")
 
@@ -184,16 +184,16 @@ class TestContextOutputSchema:
 
     def test_expected_output_schema_included(self, empty_db):
         """Context bundle includes expected_output_schema."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id)
 
         output = cmd_context_build(ctx, task_id=task_id, build_reason="normal")
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT expected_output_schema_json FROM context_bundles WHERE id = ?",
                 (output["data"]["id"],),
@@ -208,9 +208,9 @@ class TestContextImmutability:
 
     def test_context_bundle_is_immutable(self, empty_db):
         """Context bundle is immutable - new bundle created on rebuild."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id)
             bundle_id_1 = create_context_bundle(conn, task_id, state_snapshot={"old": "state"})
@@ -221,7 +221,7 @@ class TestContextImmutability:
         bundle_id_2 = output["data"]["id"]
 
         # Verify old bundle still exists
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row1 = conn.execute(
                 "SELECT * FROM context_bundles WHERE id = ?", (bundle_id_1,)
             ).fetchone()

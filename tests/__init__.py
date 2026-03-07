@@ -1,1 +1,1 @@
-"""Tests for workx CLI."""
+"""Tests for agent-taskstate CLI."""

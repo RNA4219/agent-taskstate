@@ -10,7 +10,7 @@ import json
 import pytest
 
 from .helpers import (
-    workx,
+    agent_taskstate,
     create_task,
     create_decision,
     create_open_question,
@@ -27,9 +27,9 @@ class TestQuestionAdd:
 
     def test_add_question(self, empty_db):
         """Spec 5.4: Add a new open question."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         question_data = {
@@ -42,7 +42,7 @@ class TestQuestionAdd:
         assert output["ok"] is True
         assert "id" in output["data"]
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT * FROM open_questions WHERE id = ?", (output["data"]["id"],)
             ).fetchone()
@@ -51,7 +51,7 @@ class TestQuestionAdd:
 
     def test_add_question_nonexistent_task_returns_not_found(self, empty_db):
         """Add question to nonexistent task returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         question_data = {"question": "test?", "priority": "high"}
 
@@ -63,9 +63,9 @@ class TestQuestionAdd:
     @pytest.mark.parametrize("priority", ["low", "medium", "high"])
     def test_add_question_each_priority(self, empty_db, priority):
         """Add question with each valid priority."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         question_data = {"question": "test question", "priority": priority}
@@ -79,9 +79,9 @@ class TestQuestionList:
 
     def test_list_questions(self, empty_db):
         """List all questions for a task."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_open_question(conn, task_id, question="Question 1", status="open")
             create_open_question(conn, task_id, question="Question 2", status="answered")
@@ -93,9 +93,9 @@ class TestQuestionList:
 
     def test_list_questions_filter_by_status(self, empty_db):
         """Filter questions by status."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_open_question(conn, task_id, status="open")
             create_open_question(conn, task_id, status="answered")
@@ -111,16 +111,16 @@ class TestQuestionAnswer:
 
     def test_answer_question(self, empty_db):
         """Answer an open question."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             question_id = create_open_question(conn, task_id, status="open")
 
         output = cmd_question_answer(ctx, question_id=question_id, answer="SQLite を採用する")
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT status, answer FROM open_questions WHERE id = ?", (question_id,)
             ).fetchone()
@@ -129,7 +129,7 @@ class TestQuestionAnswer:
 
     def test_answer_nonexistent_question_returns_not_found(self, empty_db):
         """Answer nonexistent question returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         output = cmd_question_answer(ctx, question_id="01HNOTFOUND001", answer="test")
 
@@ -142,16 +142,16 @@ class TestQuestionDefer:
 
     def test_defer_question(self, empty_db):
         """Defer an open question."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             question_id = create_open_question(conn, task_id, status="open", priority="high")
 
         output = cmd_question_defer(ctx, question_id=question_id)
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT status FROM open_questions WHERE id = ?", (question_id,)
             ).fetchone()
@@ -159,7 +159,7 @@ class TestQuestionDefer:
 
     def test_defer_nonexistent_question_returns_not_found(self, empty_db):
         """Defer nonexistent question returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         output = cmd_question_defer(ctx, question_id="01HNOTFOUND001")
 
@@ -172,9 +172,9 @@ class TestQuestionReviewImpact:
 
     def test_high_priority_open_question_blocks_review(self, empty_db):
         """Spec 7.4: High priority open question blocks review transition."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn, status="in_progress")
             create_decision(conn, task_id, status="accepted")
             create_open_question(conn, task_id, priority="high", status="open")
@@ -186,9 +186,9 @@ class TestQuestionReviewImpact:
 
     def test_high_priority_answered_allows_review(self, empty_db):
         """High priority but answered question allows review."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn, status="in_progress")
             create_decision(conn, task_id, status="accepted")
             create_open_question(conn, task_id, priority="high", status="answered")

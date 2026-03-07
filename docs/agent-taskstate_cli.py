@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-workx CLI MVP
+agent-taskstate CLI MVP
 
 Agent-first, SQLite-backed CLI for long-running task state management.
 
@@ -28,8 +28,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-APP_NAME = "workx"
-DEFAULT_DB_PATH = os.path.join(Path.home(), ".workx", "workx.db")
+APP_NAME = "agent-taskstate"
+DEFAULT_DB_PATH = os.path.join(Path.home(), ".agent-taskstate", "agent-taskstate.db")
 ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 TASK_KINDS = {"bugfix", "feature", "research"}
@@ -71,7 +71,7 @@ ALLOWED_TRANSITIONS = {
 }
 
 
-class WorkxError(Exception):
+class AgentTaskstateError(Exception):
     code = "validation_error"
 
     def __init__(self, message: str, *, code: Optional[str] = None) -> None:
@@ -80,19 +80,19 @@ class WorkxError(Exception):
             self.code = code
 
 
-class NotFoundError(WorkxError):
+class NotFoundError(AgentTaskstateError):
     code = "not_found"
 
 
-class ConflictError(WorkxError):
+class ConflictError(AgentTaskstateError):
     code = "conflict"
 
 
-class InvalidTransitionError(WorkxError):
+class InvalidTransitionError(AgentTaskstateError):
     code = "invalid_transition"
 
 
-class DependencyBlockedError(WorkxError):
+class DependencyBlockedError(AgentTaskstateError):
     code = "dependency_blocked"
 
 
@@ -311,7 +311,7 @@ def row_to_task_state(row: sqlite3.Row) -> Dict[str, Any]:
 def row_to_decision(row: sqlite3.Row) -> Dict[str, Any]:
     data = dict(row)
     data["evidence_refs"] = jload(row["evidence_refs_json"], [])
-    data["ref"] = typed_ref("workx", "decision", row["id"])
+    data["ref"] = typed_ref("agent-taskstate", "decision", row["id"])
     del data["evidence_refs_json"]
     return data
 
@@ -319,14 +319,14 @@ def row_to_decision(row: sqlite3.Row) -> Dict[str, Any]:
 def row_to_question(row: sqlite3.Row) -> Dict[str, Any]:
     data = dict(row)
     data["evidence_refs"] = jload(row["evidence_refs_json"], [])
-    data["ref"] = typed_ref("workx", "question", row["id"])
+    data["ref"] = typed_ref("agent-taskstate", "question", row["id"])
     del data["evidence_refs_json"]
     return data
 
 
 def row_to_run(row: sqlite3.Row) -> Dict[str, Any]:
     data = dict(row)
-    data["ref"] = typed_ref("workx", "run", row["id"])
+    data["ref"] = typed_ref("agent-taskstate", "run", row["id"])
     return data
 
 
@@ -338,7 +338,7 @@ def row_to_bundle(row: sqlite3.Row) -> Dict[str, Any]:
     data["included_artifact_refs"] = jload(row["included_artifact_refs_json"], [])
     data["included_evidence_refs"] = jload(row["included_evidence_refs_json"], [])
     data["expected_output_schema"] = jload(row["expected_output_schema_json"], {})
-    data["ref"] = typed_ref("workx", "context_bundle", row["id"])
+    data["ref"] = typed_ref("agent-taskstate", "context_bundle", row["id"])
     for key in [
         "state_snapshot_json",
         "included_decision_refs_json",
@@ -545,14 +545,14 @@ def cmd_task_create(ctx: AppContext, args: argparse.Namespace) -> int:
             ),
         )
         row = get_task(conn, task_id)
-    return json_ok({**row_to_task(row), "ref": typed_ref("workx", "task", task_id)})
+    return json_ok({**row_to_task(row), "ref": typed_ref("agent-taskstate", "task", task_id)})
 
 
 def cmd_task_show(ctx: AppContext, args: argparse.Namespace) -> int:
     with connect(ctx.db_path) as conn:
         row = get_task(conn, args.task)
         data = row_to_task(row)
-        data["ref"] = typed_ref("workx", "task", args.task)
+        data["ref"] = typed_ref("agent-taskstate", "task", args.task)
         try:
             data["state"] = row_to_task_state(get_task_state(conn, args.task))
         except NotFoundError:
@@ -582,7 +582,7 @@ def cmd_task_list(ctx: AppContext, args: argparse.Namespace) -> int:
     sql = f"SELECT * FROM tasks {where} ORDER BY updated_at DESC, created_at DESC"
     with connect(ctx.db_path) as conn:
         rows = conn.execute(sql, params).fetchall()
-    data = [{**row_to_task(r), "ref": typed_ref("workx", "task", r["id"])} for r in rows]
+    data = [{**row_to_task(r), "ref": typed_ref("agent-taskstate", "task", r["id"])} for r in rows]
     return json_ok(data)
 
 
@@ -607,7 +607,7 @@ def cmd_task_update(ctx: AppContext, args: argparse.Namespace) -> int:
         fields = ", ".join([f"{k} = ?" for k in updates])
         conn.execute(f"UPDATE tasks SET {fields} WHERE id = ?", [*updates.values(), args.task])
         row = get_task(conn, args.task)
-    return json_ok({**row_to_task(row), "ref": typed_ref("workx", "task", args.task)})
+    return json_ok({**row_to_task(row), "ref": typed_ref("agent-taskstate", "task", args.task)})
 
 
 def cmd_task_set_status(ctx: AppContext, args: argparse.Namespace) -> int:
@@ -622,7 +622,7 @@ def cmd_task_set_status(ctx: AppContext, args: argparse.Namespace) -> int:
             validate_status_transition(conn, row, args.to)
         conn.execute("UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?", (args.to, now_utc(), args.task))
         row = get_task(conn, args.task)
-    data = {**row_to_task(row), "ref": typed_ref("workx", "task", args.task)}
+    data = {**row_to_task(row), "ref": typed_ref("agent-taskstate", "task", args.task)}
     if args.reason:
         data["transition_reason"] = args.reason
     return json_ok(data)
@@ -993,7 +993,7 @@ def cmd_context_build(ctx: AppContext, args: argparse.Namespace) -> int:
 
         state_snapshot = {
             "task": task,
-            "task_ref": typed_ref("workx", "task", task["id"]),
+            "task_ref": typed_ref("agent-taskstate", "task", task["id"]),
             "task_state": state,
             "accepted_decisions": accepted_decisions,
             "open_questions": questions,
@@ -1058,7 +1058,7 @@ def cmd_export_task(ctx: AppContext, args: argparse.Namespace) -> int:
             for r in conn.execute("SELECT * FROM context_bundles WHERE task_id = ? ORDER BY created_at ASC", (args.task,)).fetchall()
         ]
     export = {
-        "task": {**task, "ref": typed_ref("workx", "task", task["id"])} ,
+        "task": {**task, "ref": typed_ref("agent-taskstate", "task", task["id"])} ,
         "task_state": state,
         "decisions": decisions,
         "open_questions": questions,
@@ -1074,7 +1074,7 @@ def cmd_export_task(ctx: AppContext, args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=APP_NAME, description="workx CLI MVP")
+    parser = argparse.ArgumentParser(prog=APP_NAME, description="agent-taskstate CLI MVP")
     parser.add_argument("--db", default=os.environ.get("WORKX_DB", DEFAULT_DB_PATH), help="SQLite DB path")
 
     sub = parser.add_subparsers(dest="command")

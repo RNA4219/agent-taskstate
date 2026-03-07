@@ -1,4 +1,4 @@
-# workx Development Runbook
+# agent-taskstate Development Runbook
 
 SDD (Specification-Driven Development) と TDD (Test-Driven Development) を統合した開発ワークフロー。
 
@@ -241,7 +241,7 @@ class TestTaskCreate:
 3. エンドツーエンドで手動確認（オプション）
 4. ドキュメント更新（CHANGELOG 等）
 
-#### 受入チェックリスト（workx MVP例）
+#### 受入チェックリスト（agent-taskstate MVP例）
 
 - [ ] task を作成できる
 - [ ] task_state を作成・更新できる

@@ -6,8 +6,8 @@ Provides canonical 4-segment typed_ref format for cross-repo entity references.
 Format: <domain>:<entity_type>:<provider>:<entity_id>
 
 Examples:
-- workx:task:local:task_01JXYZ...
-- workx:decision:local:dec_01JXYZ...
+- agent-taskstate:task:local:task_01JXYZ...
+- agent-taskstate:decision:local:dec_01JXYZ...
 - memx:evidence:local:ev_01JXYZ...
 - tracker:issue:github:owner/repo#123
 - tracker:issue:jira:PROJ-123
@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Optional, Set, Tuple
 
 # Known domains (can be extended)
-KNOWN_DOMAINS: Set[str] = {"workx", "memx", "tracker"}
+KNOWN_DOMAINS: Set[str] = {"agent-taskstate", "memx", "tracker"}
 
 # Default provider for local entities
 DEFAULT_PROVIDER = "local"
@@ -53,7 +53,7 @@ def format_ref(
     Format a 4-segment typed_ref string.
 
     Args:
-        domain: Domain namespace (workx, memx, tracker)
+        domain: Domain namespace (agent-taskstate, memx, tracker)
         entity_type: Entity type (task, decision, evidence, etc.)
         entity_id: Entity identifier
         provider: Provider name (default: "local")
@@ -62,8 +62,8 @@ def format_ref(
         Canonical typed_ref string
 
     Example:
-        >>> format_ref("workx", "task", "task_01JABC")
-        'workx:task:local:task_01JABC'
+        >>> format_ref("agent-taskstate", "task", "task_01JABC")
+        'agent-taskstate:task:local:task_01JABC'
     """
     return f"{domain}:{entity_type}:{provider}:{entity_id}"
 
@@ -85,10 +85,10 @@ def parse_ref(ref: str) -> TypedRef:
         ValueError: If ref format is invalid
 
     Example:
-        >>> parse_ref("workx:task:local:task_01JABC")
-        TypedRef(domain='workx', entity_type='task', provider='local', entity_id='task_01JABC')
-        >>> parse_ref("workx:task:task_01JABC")  # legacy 3-segment
-        TypedRef(domain='workx', entity_type='task', provider='local', entity_id='task_01JABC')
+        >>> parse_ref("agent-taskstate:task:local:task_01JABC")
+        TypedRef(domain='agent-taskstate', entity_type='task', provider='local', entity_id='task_01JABC')
+        >>> parse_ref("agent-taskstate:task:task_01JABC")  # legacy 3-segment
+        TypedRef(domain='agent-taskstate', entity_type='task', provider='local', entity_id='task_01JABC')
     """
     parts = ref.split(":")
 
@@ -134,7 +134,7 @@ def validate_ref(ref: str) -> Tuple[bool, Optional[str]]:
         Tuple of (is_valid, error_message)
 
     Example:
-        >>> validate_ref("workx:task:local:task_01JABC")
+        >>> validate_ref("agent-taskstate:task:local:task_01JABC")
         (True, None)
         >>> validate_ref("invalid")
         (False, "Invalid typed_ref format...")
@@ -176,10 +176,10 @@ def canonicalize_ref(ref: str) -> str:
         ValueError: If ref format is invalid
 
     Example:
-        >>> canonicalize_ref("workx:task:task_01JABC")
-        'workx:task:local:task_01JABC'
-        >>> canonicalize_ref("workx:task:local:task_01JABC")
-        'workx:task:local:task_01JABC'
+        >>> canonicalize_ref("agent-taskstate:task:task_01JABC")
+        'agent-taskstate:task:local:task_01JABC'
+        >>> canonicalize_ref("agent-taskstate:task:local:task_01JABC")
+        'agent-taskstate:task:local:task_01JABC'
     """
     parsed = parse_ref(ref)
     return str(parsed)
@@ -200,9 +200,9 @@ def is_known_domain(domain: str) -> bool:
 
 # Convenience functions for common domains
 
-def workx_ref(entity_type: str, entity_id: str, provider: str = DEFAULT_PROVIDER) -> str:
-    """Create a workx typed_ref."""
-    return format_ref("workx", entity_type, entity_id, provider)
+def agent_taskstate_ref(entity_type: str, entity_id: str, provider: str = DEFAULT_PROVIDER) -> str:
+    """Create an agent-taskstate typed_ref."""
+    return format_ref("agent-taskstate", entity_type, entity_id, provider)
 
 
 def memx_ref(entity_type: str, entity_id: str, provider: str = DEFAULT_PROVIDER) -> str:

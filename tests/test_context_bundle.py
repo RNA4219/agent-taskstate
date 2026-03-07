@@ -150,12 +150,12 @@ class TestContextBundleService:
 
         source = service.add_source(
             bundle_id=bundle.id,
-            typed_ref="workx:decision:local:dec_001",
+            typed_ref="agent-taskstate:decision:local:dec_001",
             source_kind="decision",
         )
 
         assert source.context_bundle_id == bundle.id
-        assert source.typed_ref == "workx:decision:local:dec_001"
+        assert source.typed_ref == "agent-taskstate:decision:local:dec_001"
         assert source.source_kind == "decision"
 
     def test_add_source_canonicalizes_ref(self, service):
@@ -169,12 +169,12 @@ class TestContextBundleService:
 
         source = service.add_source(
             bundle_id=bundle.id,
-            typed_ref="workx:decision:dec_001",  # 3-segment
+            typed_ref="agent-taskstate:decision:dec_001",  # 3-segment
             source_kind="decision",
         )
 
         # Should be canonicalized to 4-segment
-        assert source.typed_ref == "workx:decision:local:dec_001"
+        assert source.typed_ref == "agent-taskstate:decision:local:dec_001"
 
     def test_invalid_source_kind_raises(self, service):
         """Invalid source_kind raises ValueError."""
@@ -188,7 +188,7 @@ class TestContextBundleService:
         with pytest.raises(ValueError, match="Invalid source_kind"):
             service.add_source(
                 bundle_id=bundle.id,
-                typed_ref="workx:task:local:task_001",
+                typed_ref="agent-taskstate:task:local:task_001",
                 source_kind="invalid_kind",
             )
 
@@ -202,8 +202,8 @@ class TestContextBundleService:
         )
 
         # Add sources
-        service.add_source(created.id, "workx:decision:local:dec_001", "decision")
-        service.add_source(created.id, "workx:artifact:local:art_001", "artifact")
+        service.add_source(created.id, "agent-taskstate:decision:local:dec_001", "decision")
+        service.add_source(created.id, "agent-taskstate:artifact:local:art_001", "artifact")
 
         retrieved = service.get_bundle(created.id)
 
@@ -291,8 +291,8 @@ class TestContextBundle:
             summary="Test bundle",
         )
 
-        service.add_source(bundle.id, "workx:decision:local:dec_001", "decision")
-        service.add_source(bundle.id, "workx:artifact:local:art_001", "artifact")
+        service.add_source(bundle.id, "agent-taskstate:decision:local:dec_001", "decision")
+        service.add_source(bundle.id, "agent-taskstate:artifact:local:art_001", "artifact")
 
         # Reload bundle to get updated sources
         bundle = service.get_bundle(bundle.id)
@@ -316,16 +316,16 @@ class TestContextBundle:
             state_snapshot={},
         )
 
-        service.add_source(bundle.id, "workx:decision:local:dec_001", "decision")
-        service.add_source(bundle.id, "workx:evidence:local:ev_001", "evidence")
+        service.add_source(bundle.id, "agent-taskstate:decision:local:dec_001", "decision")
+        service.add_source(bundle.id, "agent-taskstate:evidence:local:ev_001", "evidence")
 
         # Reload bundle to get updated sources
         bundle = service.get_bundle(bundle.id)
         refs = bundle.get_source_refs()
 
         assert len(refs) == 2
-        assert "workx:decision:local:dec_001" in refs
-        assert "workx:evidence:local:ev_001" in refs
+        assert "agent-taskstate:decision:local:dec_001" in refs
+        assert "agent-taskstate:evidence:local:ev_001" in refs
 
 
 class TestBundleAudit:
@@ -395,8 +395,8 @@ class TestBundleAudit:
         )
 
         # Add multiple sources
-        service.add_source(bundle.id, "workx:task:local:task_001", "task")
-        service.add_source(bundle.id, "workx:decision:local:dec_001", "decision")
+        service.add_source(bundle.id, "agent-taskstate:task:local:task_001", "task")
+        service.add_source(bundle.id, "agent-taskstate:decision:local:dec_001", "decision")
         service.add_source(bundle.id, "memx:evidence:local:ev_001", "evidence")
 
         retrieved = service.get_bundle(bundle.id)

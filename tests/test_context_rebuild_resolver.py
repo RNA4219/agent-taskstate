@@ -19,7 +19,7 @@ from src.resolver import (
     SummaryPayload,
     RawPayload,
     ResolverDiagnostics,
-    WorkxLocalResolver,
+    AgentTaskstateLocalResolver,
     RAW_DESCENT_CONDITIONS,
 )
 
@@ -72,16 +72,16 @@ def conn():
 
 
 @pytest.fixture
-def workx_resolver(conn):
-    """Create a WorkxLocalResolver with DB connection."""
-    return WorkxLocalResolver(conn)
+def agent_taskstate_resolver(conn):
+    """Create a AgentTaskstateLocalResolver with DB connection."""
+    return AgentTaskstateLocalResolver(conn)
 
 
 @pytest.fixture
-def resolver(workx_resolver):
-    """Create a ContextRebuildResolver with WorkxLocalResolver registered."""
+def resolver(agent_taskstate_resolver):
+    """Create a ContextRebuildResolver with AgentTaskstateLocalResolver registered."""
     resolver = ContextRebuildResolver()
-    resolver.register_resolver(workx_resolver)
+    resolver.register_resolver(agent_taskstate_resolver)
     return resolver
 
 
@@ -101,7 +101,7 @@ class TestResolvedRef:
     def test_resolved_ref(self):
         """Create a resolved ref."""
         ref = ResolvedRef(
-            ref="workx:task:local:task_001",
+            ref="agent-taskstate:task:local:task_001",
             status=ResolveStatus.RESOLVED,
             summary="Test Task",
             metadata={"status": "in_progress"},
@@ -153,48 +153,48 @@ class TestResolverDiagnostics:
         assert result["partial_bundle"] is True
 
 
-class TestWorkxLocalResolver:
-    """Test WorkxLocalResolver."""
+class TestAgentTaskstateLocalResolver:
+    """Test AgentTaskstateLocalResolver."""
 
-    def test_can_resolve_workx_local(self, workx_resolver):
-        """Can resolve workx local refs."""
-        assert workx_resolver.can_resolve("workx:task:local:task_001") is True
-        assert workx_resolver.can_resolve("workx:decision:local:dec_001") is True
+    def test_can_resolve_agent_taskstate_local(self, agent_taskstate_resolver):
+        """Can resolve agent-taskstate local refs."""
+        assert agent_taskstate_resolver.can_resolve("agent-taskstate:task:local:task_001") is True
+        assert agent_taskstate_resolver.can_resolve("agent-taskstate:decision:local:dec_001") is True
 
-    def test_cannot_resolve_other_domains(self, workx_resolver):
+    def test_cannot_resolve_other_domains(self, agent_taskstate_resolver):
         """Cannot resolve other domains."""
-        assert workx_resolver.can_resolve("memx:evidence:local:ev_001") is False
-        assert workx_resolver.can_resolve("tracker:issue:jira:PROJ-123") is False
+        assert agent_taskstate_resolver.can_resolve("memx:evidence:local:ev_001") is False
+        assert agent_taskstate_resolver.can_resolve("tracker:issue:jira:PROJ-123") is False
 
-    def test_resolve_existing_task(self, workx_resolver):
+    def test_resolve_existing_task(self, agent_taskstate_resolver):
         """Resolve an existing task."""
-        result = workx_resolver.resolve("workx:task:local:task_001")
+        result = agent_taskstate_resolver.resolve("agent-taskstate:task:local:task_001")
         assert result.status == ResolveStatus.RESOLVED
         assert result.summary == "Test Task"
         assert result.metadata["status"] == "in_progress"
 
-    def test_resolve_nonexistent_task(self, workx_resolver):
+    def test_resolve_nonexistent_task(self, agent_taskstate_resolver):
         """Resolve a nonexistent task."""
-        result = workx_resolver.resolve("workx:task:local:nonexistent")
+        result = agent_taskstate_resolver.resolve("agent-taskstate:task:local:nonexistent")
         assert result.status == ResolveStatus.UNRESOLVED
         assert "not found" in result.error_message.lower()
 
-    def test_resolve_existing_decision(self, workx_resolver):
+    def test_resolve_existing_decision(self, agent_taskstate_resolver):
         """Resolve an existing decision."""
-        result = workx_resolver.resolve("workx:decision:local:dec_001")
+        result = agent_taskstate_resolver.resolve("agent-taskstate:decision:local:dec_001")
         assert result.status == ResolveStatus.RESOLVED
         assert result.summary == "Use PostgreSQL for storage"
 
-    def test_resolve_existing_bundle(self, workx_resolver):
+    def test_resolve_existing_bundle(self, agent_taskstate_resolver):
         """Resolve an existing context bundle."""
-        result = workx_resolver.resolve("workx:context_bundle:local:bundle_001")
+        result = agent_taskstate_resolver.resolve("agent-taskstate:context_bundle:local:bundle_001")
         assert result.status == ResolveStatus.RESOLVED
         assert result.summary == "Test bundle summary"
 
     def test_resolve_without_db(self):
         """Resolve without DB connection returns unresolved."""
-        resolver = WorkxLocalResolver(conn=None)
-        result = resolver.resolve("workx:task:local:task_001")
+        resolver = AgentTaskstateLocalResolver(conn=None)
+        result = resolver.resolve("agent-taskstate:task:local:task_001")
         assert result.status == ResolveStatus.UNRESOLVED
         assert "database" in result.error_message.lower()
 
@@ -204,7 +204,7 @@ class TestContextRebuildResolver:
 
     def test_resolve_ref(self, resolver):
         """Resolve a single ref."""
-        result = resolver.resolve_ref("workx:task:local:task_001")
+        result = resolver.resolve_ref("agent-taskstate:task:local:task_001")
         assert result.status == ResolveStatus.RESOLVED
 
     def test_resolve_unsupported_domain(self, resolver):
@@ -215,9 +215,9 @@ class TestContextRebuildResolver:
     def test_resolve_many(self, resolver):
         """Resolve multiple refs."""
         refs = [
-            "workx:task:local:task_001",
-            "workx:decision:local:dec_001",
-            "workx:task:local:nonexistent",
+            "agent-taskstate:task:local:task_001",
+            "agent-taskstate:decision:local:dec_001",
+            "agent-taskstate:task:local:nonexistent",
             "memx:evidence:local:ev_001",
         ]
         report = resolver.resolve_many(refs)
@@ -228,26 +228,26 @@ class TestContextRebuildResolver:
 
     def test_load_summary(self, resolver):
         """Load summary for a ref."""
-        summary = resolver.load_summary("workx:task:local:task_001")
+        summary = resolver.load_summary("agent-taskstate:task:local:task_001")
         assert summary is not None
         assert summary.summary == "Test Task"
 
     def test_load_summary_nonexistent(self, resolver):
         """Load summary for nonexistent ref returns None."""
-        summary = resolver.load_summary("workx:task:local:nonexistent")
+        summary = resolver.load_summary("agent-taskstate:task:local:nonexistent")
         assert summary is None
 
     def test_load_selected_raw(self, resolver):
         """Load raw content for a ref."""
-        raw = resolver.load_selected_raw("workx:task:local:task_001")
+        raw = resolver.load_selected_raw("agent-taskstate:task:local:task_001")
         assert raw is not None
         assert raw.content == "Test Task"
 
     def test_get_diagnostics(self, resolver):
         """Generate diagnostics from resolve report."""
         report = resolver.resolve_many([
-            "workx:task:local:task_001",
-            "workx:task:local:nonexistent",
+            "agent-taskstate:task:local:task_001",
+            "agent-taskstate:task:local:nonexistent",
             "memx:evidence:local:ev_001",
         ])
         diag = resolver.get_diagnostics(report)
@@ -292,15 +292,15 @@ class TestIntegration:
 
     def test_summary_first_retrieval(self, resolver):
         """Summary-first retrieval returns summary."""
-        summary = resolver.load_summary("workx:task:local:task_001")
+        summary = resolver.load_summary("agent-taskstate:task:local:task_001")
         assert summary is not None
         assert isinstance(summary, SummaryPayload)
 
     def test_bundle_continues_on_unresolved(self, resolver):
         """Bundle build continues even with unresolved refs."""
         report = resolver.resolve_many([
-            "workx:task:local:task_001",
-            "workx:task:local:nonexistent",
+            "agent-taskstate:task:local:task_001",
+            "agent-taskstate:task:local:nonexistent",
             "memx:evidence:local:ev_001",
         ])
 
@@ -312,6 +312,6 @@ class TestIntegration:
 
     def test_source_refs_traceable(self, resolver):
         """Source refs can be traced back."""
-        result = resolver.resolve_ref("workx:task:local:task_001")
+        result = resolver.resolve_ref("agent-taskstate:task:local:task_001")
         assert result.status == ResolveStatus.RESOLVED
-        assert result.ref == "workx:task:local:task_001"
+        assert result.ref == "agent-taskstate:task:local:task_001"

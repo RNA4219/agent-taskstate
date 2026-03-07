@@ -1,5 +1,5 @@
 """
-Test helper functions for workx CLI testing.
+Test helper functions for agent-taskstate CLI testing.
 """
 
 import argparse
@@ -14,10 +14,10 @@ from typing import Any, Dict
 
 # Load CLI module from file (filename contains hyphen)
 _cli_path = Path(__file__).parent.parent / "docs" / "src" / "agent-taskstate_cli.py"
-_spec = importlib.util.spec_from_file_location("workx", _cli_path)
-workx = importlib.util.module_from_spec(_spec)
-sys.modules["workx"] = workx
-_spec.loader.exec_module(workx)
+_spec = importlib.util.spec_from_file_location("agent_taskstate", _cli_path)
+agent_taskstate = importlib.util.module_from_spec(_spec)
+sys.modules["agent_taskstate"] = agent_taskstate
+_spec.loader.exec_module(agent_taskstate)
 
 
 # ============================================
@@ -35,7 +35,7 @@ def capture_output(func, *args, **kwargs) -> Dict[str, Any]:
     with redirect_stdout(stdout_capture):
         try:
             func(*args, **kwargs)
-        except workx.WorkxError as e:
+        except agent_taskstate.AgentTaskstateError as e:
             # Exception was raised before output was printed - construct error output
             return {"ok": False, "data": None, "error": {"code": e.code, "message": str(e)}}
     output = stdout_capture.getvalue()
@@ -63,8 +63,8 @@ def create_task(
 ) -> str:
     """Create a task directly in the database."""
     if task_id is None:
-        task_id = workx.gen_id()
-    now = workx.now_utc()
+        task_id = agent_taskstate.gen_id()
+    now = agent_taskstate.now_utc()
     conn.execute(
         """
         INSERT INTO tasks (id, parent_task_id, kind, title, goal, status, priority, owner_type, owner_id, created_at, updated_at)
@@ -89,7 +89,7 @@ def create_task_state(
     context_policy: dict = None,
 ) -> None:
     """Create a task_state directly in the database."""
-    now = workx.now_utc()
+    now = agent_taskstate.now_utc()
     conn.execute(
         """
         INSERT INTO task_states (task_id, revision, current_step, constraints_json, done_when_json,
@@ -101,13 +101,13 @@ def create_task_state(
             task_id,
             revision,
             current_step,
-            workx.jdump(constraints or []),
-            workx.jdump(done_when or []),
+            agent_taskstate.jdump(constraints or []),
+            agent_taskstate.jdump(done_when or []),
             current_summary,
-            workx.jdump(artifact_refs or []),
-            workx.jdump(evidence_refs or []),
+            agent_taskstate.jdump(artifact_refs or []),
+            agent_taskstate.jdump(evidence_refs or []),
             confidence,
-            workx.jdump(context_policy or {}),
+            agent_taskstate.jdump(context_policy or {}),
             now,
             now,
         ),
@@ -127,8 +127,8 @@ def create_decision(
 ) -> str:
     """Create a decision directly in the database."""
     if decision_id is None:
-        decision_id = workx.gen_id()
-    now = workx.now_utc()
+        decision_id = agent_taskstate.gen_id()
+    now = agent_taskstate.now_utc()
     conn.execute(
         """
         INSERT INTO decisions (id, task_id, summary, rationale, status, confidence,
@@ -142,7 +142,7 @@ def create_decision(
             rationale,
             status,
             confidence,
-            workx.jdump(evidence_refs or []),
+            agent_taskstate.jdump(evidence_refs or []),
             supersedes_decision_id,
             now,
             now,
@@ -163,8 +163,8 @@ def create_open_question(
 ) -> str:
     """Create an open_question directly in the database."""
     if question_id is None:
-        question_id = workx.gen_id()
-    now = workx.now_utc()
+        question_id = agent_taskstate.gen_id()
+    now = agent_taskstate.now_utc()
     conn.execute(
         """
         INSERT INTO open_questions (id, task_id, question, priority, status, answer, evidence_refs_json, created_at, updated_at)
@@ -177,7 +177,7 @@ def create_open_question(
             priority,
             status,
             answer,
-            workx.jdump(evidence_refs or []),
+            agent_taskstate.jdump(evidence_refs or []),
             now,
             now,
         ),
@@ -199,8 +199,8 @@ def create_run(
 ) -> str:
     """Create a run directly in the database."""
     if run_id is None:
-        run_id = workx.gen_id()
-    now = workx.now_utc()
+        run_id = agent_taskstate.gen_id()
+    now = agent_taskstate.now_utc()
     conn.execute(
         """
         INSERT INTO runs (id, task_id, actor_type, actor_id, run_type, status, input_ref, output_ref, started_at, ended_at, created_at, updated_at)
@@ -220,8 +220,8 @@ def create_context_bundle(
 ) -> str:
     """Create a context_bundle directly in the database."""
     if bundle_id is None:
-        bundle_id = workx.gen_id()
-    now = workx.now_utc()
+        bundle_id = agent_taskstate.gen_id()
+    now = agent_taskstate.now_utc()
     conn.execute(
         """
         INSERT INTO context_bundles (id, task_id, build_reason, state_snapshot_json,
@@ -234,12 +234,12 @@ def create_context_bundle(
             bundle_id,
             task_id,
             build_reason,
-            workx.jdump(state_snapshot or {}),
-            workx.jdump([]),
-            workx.jdump([]),
-            workx.jdump([]),
-            workx.jdump([]),
-            workx.jdump(workx.EXPECTED_OUTPUT_SCHEMA),
+            agent_taskstate.jdump(state_snapshot or {}),
+            agent_taskstate.jdump([]),
+            agent_taskstate.jdump([]),
+            agent_taskstate.jdump([]),
+            agent_taskstate.jdump([]),
+            agent_taskstate.jdump(agent_taskstate.EXPECTED_OUTPUT_SCHEMA),
             now,
         ),
     )
@@ -263,19 +263,19 @@ def cmd_task_create(ctx, kind, title, goal, priority, owner_type, owner_id, pare
     if parent_task_id:
         payload["parent_task_id"] = parent_task_id
     args = make_args(json=json.dumps(payload), file=None)
-    return capture_output(workx.cmd_task_create, ctx, args)
+    return capture_output(agent_taskstate.cmd_task_create, ctx, args)
 
 
 def cmd_task_show(ctx, task_id) -> Dict:
     """Wrapper for task show command."""
     args = make_args(task=task_id)
-    return capture_output(workx.cmd_task_show, ctx, args)
+    return capture_output(agent_taskstate.cmd_task_show, ctx, args)
 
 
 def cmd_task_list(ctx, status=None, kind=None, owner_type=None, owner_id=None) -> Dict:
     """Wrapper for task list command."""
     args = make_args(status=status, kind=kind, owner_type=owner_type, owner_id=owner_id, priority=None)
-    return capture_output(workx.cmd_task_list, ctx, args)
+    return capture_output(agent_taskstate.cmd_task_list, ctx, args)
 
 
 def cmd_task_update(ctx, task_id, title=None, goal=None, priority=None) -> Dict:
@@ -288,93 +288,93 @@ def cmd_task_update(ctx, task_id, title=None, goal=None, priority=None) -> Dict:
     if priority is not None:
         payload["priority"] = priority
     args = make_args(task=task_id, json=json.dumps(payload), file=None)
-    return capture_output(workx.cmd_task_update, ctx, args)
+    return capture_output(agent_taskstate.cmd_task_update, ctx, args)
 
 
 def cmd_task_set_status(ctx, task_id, to_status, reason=None) -> Dict:
     """Wrapper for task set-status command."""
     args = make_args(task=task_id, to=to_status, reason=reason, reason_required=True)
-    return capture_output(workx.cmd_task_set_status, ctx, args)
+    return capture_output(agent_taskstate.cmd_task_set_status, ctx, args)
 
 
 def cmd_state_put(ctx, task_id, state_json) -> Dict:
     """Wrapper for state put command."""
     args = make_args(task=task_id, json=json.dumps(state_json), file=None)
-    return capture_output(workx.cmd_state_put, ctx, args)
+    return capture_output(agent_taskstate.cmd_state_put, ctx, args)
 
 
 def cmd_state_get(ctx, task_id) -> Dict:
     """Wrapper for state get command."""
     args = make_args(task=task_id)
-    return capture_output(workx.cmd_state_get, ctx, args)
+    return capture_output(agent_taskstate.cmd_state_get, ctx, args)
 
 
 def cmd_state_patch(ctx, task_id, expected_revision, patch_json) -> Dict:
     """Wrapper for state patch command."""
     args = make_args(task=task_id, expected_revision=expected_revision,
                      json=json.dumps(patch_json), file=None)
-    return capture_output(workx.cmd_state_patch, ctx, args)
+    return capture_output(agent_taskstate.cmd_state_patch, ctx, args)
 
 
 def cmd_decision_add(ctx, task_id, decision_json) -> Dict:
     """Wrapper for decision add command."""
     args = make_args(task=task_id, json=json.dumps(decision_json), file=None)
-    return capture_output(workx.cmd_decision_add, ctx, args)
+    return capture_output(agent_taskstate.cmd_decision_add, ctx, args)
 
 
 def cmd_decision_list(ctx, task_id, status=None) -> Dict:
     """Wrapper for decision list command."""
     args = make_args(task=task_id, status=status)
-    return capture_output(workx.cmd_decision_list, ctx, args)
+    return capture_output(agent_taskstate.cmd_decision_list, ctx, args)
 
 
 def cmd_decision_accept(ctx, decision_id) -> Dict:
     """Wrapper for decision accept command."""
     args = make_args(decision=decision_id)
-    return capture_output(workx.cmd_decision_accept, ctx, args)
+    return capture_output(agent_taskstate.cmd_decision_accept, ctx, args)
 
 
 def cmd_decision_reject(ctx, decision_id) -> Dict:
     """Wrapper for decision reject command."""
     args = make_args(decision=decision_id)
-    return capture_output(workx.cmd_decision_reject, ctx, args)
+    return capture_output(agent_taskstate.cmd_decision_reject, ctx, args)
 
 
 def cmd_question_add(ctx, task_id, question_json) -> Dict:
     """Wrapper for question add command."""
     args = make_args(task=task_id, json=json.dumps(question_json), file=None)
-    return capture_output(workx.cmd_question_add, ctx, args)
+    return capture_output(agent_taskstate.cmd_question_add, ctx, args)
 
 
 def cmd_question_list(ctx, task_id, status=None, priority=None) -> Dict:
     """Wrapper for question list command."""
     args = make_args(task=task_id, status=status, priority=priority)
-    return capture_output(workx.cmd_question_list, ctx, args)
+    return capture_output(agent_taskstate.cmd_question_list, ctx, args)
 
 
 def cmd_question_answer(ctx, question_id, answer) -> Dict:
     """Wrapper for question answer command."""
     args = make_args(question=question_id, answer=answer)
-    return capture_output(workx.cmd_question_answer, ctx, args)
+    return capture_output(agent_taskstate.cmd_question_answer, ctx, args)
 
 
 def cmd_question_defer(ctx, question_id, reason=None) -> Dict:
     """Wrapper for question defer command."""
     args = make_args(question=question_id, reason=reason)
-    return capture_output(workx.cmd_question_defer, ctx, args)
+    return capture_output(agent_taskstate.cmd_question_defer, ctx, args)
 
 
 def cmd_run_start(ctx, task_id, run_type, actor_type, actor_id, input_ref=None) -> Dict:
     """Wrapper for run start command."""
     args = make_args(task=task_id, run_type=run_type, actor_type=actor_type,
                      actor_id=actor_id, input_ref=input_ref)
-    return capture_output(workx.cmd_run_start, ctx, args)
+    return capture_output(agent_taskstate.cmd_run_start, ctx, args)
 
 
 def cmd_run_finish(ctx, run_id, status, output_ref=None) -> Dict:
     """Wrapper for run finish command."""
     args = make_args(run=run_id, status=status, output_ref=output_ref)
-    return capture_output(workx.cmd_run_finish, ctx, args)
+    return capture_output(agent_taskstate.cmd_run_finish, ctx, args)
 
 
 def cmd_run_list(ctx, task_id, status=None) -> Dict:
@@ -387,23 +387,23 @@ def cmd_run_list(ctx, task_id, status=None) -> Dict:
 def cmd_context_build(ctx, task_id, build_reason) -> Dict:
     """Wrapper for context build command."""
     args = make_args(task=task_id, reason=build_reason)
-    return capture_output(workx.cmd_context_build, ctx, args)
+    return capture_output(agent_taskstate.cmd_context_build, ctx, args)
 
 
 def cmd_context_show(ctx, bundle_id) -> Dict:
     """Wrapper for context show command."""
     args = make_args(bundle=bundle_id)
-    return capture_output(workx.cmd_context_show, ctx, args)
+    return capture_output(agent_taskstate.cmd_context_show, ctx, args)
 
 
 def cmd_export_task(ctx, task_id, output_path) -> Dict:
     """Wrapper for export task command."""
     args = make_args(task=task_id, output=output_path)
-    return capture_output(workx.cmd_export_task, ctx, args)
+    return capture_output(agent_taskstate.cmd_export_task, ctx, args)
 
 
 __all__ = [
-    "workx",
+    "agent_taskstate",
     "make_args",
     "capture_output",
     "create_task",

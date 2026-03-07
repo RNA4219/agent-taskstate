@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from .helpers import workx, create_task, create_decision, cmd_decision_add, cmd_decision_list, cmd_decision_accept, cmd_decision_reject
+from .helpers import agent_taskstate, create_task, create_decision, cmd_decision_add, cmd_decision_list, cmd_decision_accept, cmd_decision_reject
 
 
 class TestDecisionAdd:
@@ -17,9 +17,9 @@ class TestDecisionAdd:
 
     def test_add_decision(self, empty_db):
         """Spec 5.3: Add a new decision."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         decision_data = {
@@ -34,7 +34,7 @@ class TestDecisionAdd:
         assert output["ok"] is True
         assert "id" in output["data"]
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT * FROM decisions WHERE id = ?", (output["data"]["id"],)
             ).fetchone()
@@ -43,9 +43,9 @@ class TestDecisionAdd:
 
     def test_add_decision_minimal_fields(self, empty_db):
         """Add decision with minimal required fields."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         decision_data = {
@@ -59,7 +59,7 @@ class TestDecisionAdd:
 
     def test_add_decision_nonexistent_task_returns_not_found(self, empty_db):
         """Add decision to nonexistent task returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         decision_data = {"summary": "test", "confidence": "high"}
 
@@ -71,9 +71,9 @@ class TestDecisionAdd:
     @pytest.mark.parametrize("confidence", ["low", "medium", "high"])
     def test_add_decision_each_confidence(self, empty_db, confidence):
         """Add decision with each valid confidence."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
 
         decision_data = {"summary": "test decision", "confidence": confidence}
@@ -87,9 +87,9 @@ class TestDecisionList:
 
     def test_list_decisions(self, empty_db):
         """List all decisions for a task."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_decision(conn, task_id, summary="Decision 1", status="accepted")
             create_decision(conn, task_id, summary="Decision 2", status="proposed")
@@ -101,9 +101,9 @@ class TestDecisionList:
 
     def test_list_decisions_filter_by_status(self, empty_db):
         """Filter decisions by status."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_decision(conn, task_id, status="accepted")
             create_decision(conn, task_id, status="proposed")
@@ -120,16 +120,16 @@ class TestDecisionAccept:
 
     def test_accept_decision(self, empty_db):
         """Accept a proposed decision."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             decision_id = create_decision(conn, task_id, status="proposed")
 
         output = cmd_decision_accept(ctx, decision_id=decision_id)
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT status FROM decisions WHERE id = ?", (decision_id,)
             ).fetchone()
@@ -137,7 +137,7 @@ class TestDecisionAccept:
 
     def test_accept_nonexistent_decision_returns_not_found(self, empty_db):
         """Accept nonexistent decision returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         output = cmd_decision_accept(ctx, decision_id="01HNOTFOUND001")
 
@@ -150,16 +150,16 @@ class TestDecisionReject:
 
     def test_reject_decision(self, empty_db):
         """Reject a proposed decision."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             decision_id = create_decision(conn, task_id, status="proposed")
 
         output = cmd_decision_reject(ctx, decision_id=decision_id)
 
         assert output["ok"] is True
-        with workx.connect(empty_db) as conn:
+        with agent_taskstate.connect(empty_db) as conn:
             row = conn.execute(
                 "SELECT status FROM decisions WHERE id = ?", (decision_id,)
             ).fetchone()
@@ -167,7 +167,7 @@ class TestDecisionReject:
 
     def test_reject_nonexistent_decision_returns_not_found(self, empty_db):
         """Reject nonexistent decision returns not_found."""
-        ctx = workx.AppContext(db_path=empty_db)
+        ctx = agent_taskstate.AppContext(db_path=empty_db)
 
         output = cmd_decision_reject(ctx, decision_id="01HNOTFOUND001")
 

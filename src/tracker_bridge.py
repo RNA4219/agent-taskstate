@@ -6,7 +6,7 @@ Tracker is auxiliary - not the source of truth for internal state.
 
 Features:
 - Issue fetch and cache
-- Entity linking (tracker:issue <-> workx:task)
+- Entity linking (tracker:issue <-> agent-taskstate:task)
 - Sync event tracking
 - Snapshot export for context build
 - Outbound status/comment reflection
@@ -73,10 +73,10 @@ class IssueCache:
 
 @dataclass
 class EntityLink:
-    """Link between tracker issue and workx entity."""
+    """Link between tracker issue and agent-taskstate entity."""
     id: str
     tracker_issue_ref: str
-    workx_entity_ref: str
+    agent_taskstate_entity_ref: str
     role: str  # primary, related, duplicate, blocks
     created_at: str
 
@@ -119,9 +119,9 @@ class IssueSnapshot:
 
 @dataclass
 class SyncSuggestion:
-    """Suggestion for workx update based on tracker change."""
+    """Suggestion for agent-taskstate update based on tracker change."""
     issue_ref: str
-    workx_task_ref: str
+    agent_taskstate_task_ref: str
     suggested_action: str  # update_status, add_comment, etc.
     suggested_value: str
     reason: str
@@ -324,11 +324,11 @@ class TrackerBridgeService:
         role: str = "primary",
     ) -> EntityLink:
         """
-        Link a tracker issue to a workx task.
+        Link a tracker issue to an agent-taskstate task.
 
         Args:
             issue_ref: tracker:issue:provider:KEY-123
-            task_ref: workx:task:local:task_001
+            task_ref: agent-taskstate:task:local:task_001
             role: primary, related, duplicate, blocks
 
         Returns:
@@ -340,7 +340,7 @@ class TrackerBridgeService:
         self.conn.execute(
             """
             INSERT INTO entity_link
-                (id, tracker_issue_ref, workx_entity_ref, role, created_at)
+                (id, tracker_issue_ref, agent_taskstate_entity_ref, role, created_at)
             VALUES (?, ?, ?, ?, ?)
             """,
             (link_id, issue_ref, task_ref, role, now),
@@ -349,7 +349,7 @@ class TrackerBridgeService:
         return EntityLink(
             id=link_id,
             tracker_issue_ref=issue_ref,
-            workx_entity_ref=task_ref,
+            agent_taskstate_entity_ref=task_ref,
             role=role,
             created_at=now,
         )
@@ -358,7 +358,7 @@ class TrackerBridgeService:
         """Get all links for an issue."""
         cursor = self.conn.execute(
             """
-            SELECT id, tracker_issue_ref, workx_entity_ref, role, created_at
+            SELECT id, tracker_issue_ref, agent_taskstate_entity_ref, role, created_at
             FROM entity_link
             WHERE tracker_issue_ref = ?
             """,
@@ -370,7 +370,7 @@ class TrackerBridgeService:
             links.append(EntityLink(
                 id=row[0],
                 tracker_issue_ref=row[1],
-                workx_entity_ref=row[2],
+                agent_taskstate_entity_ref=row[2],
                 role=row[3],
                 created_at=row[4],
             ))
@@ -380,9 +380,9 @@ class TrackerBridgeService:
         """Get all tracker links for a task."""
         cursor = self.conn.execute(
             """
-            SELECT id, tracker_issue_ref, workx_entity_ref, role, created_at
+            SELECT id, tracker_issue_ref, agent_taskstate_entity_ref, role, created_at
             FROM entity_link
-            WHERE workx_entity_ref = ?
+            WHERE agent_taskstate_entity_ref = ?
             """,
             (task_ref,),
         )
@@ -392,7 +392,7 @@ class TrackerBridgeService:
             links.append(EntityLink(
                 id=row[0],
                 tracker_issue_ref=row[1],
-                workx_entity_ref=row[2],
+                agent_taskstate_entity_ref=row[2],
                 role=row[3],
                 created_at=row[4],
             ))
@@ -482,9 +482,9 @@ class TrackerBridgeService:
         issue_ref: str,
     ) -> List[SyncSuggestion]:
         """
-        Generate suggestions for workx updates based on tracker changes.
+        Generate suggestions for agent-taskstate updates based on tracker changes.
 
-        Does NOT auto-update workx state. Returns suggestions for operator.
+        Does NOT auto-update agent-taskstate state. Returns suggestions for operator.
 
         Args:
             issue_ref: tracker:issue:provider:KEY-123
@@ -507,7 +507,7 @@ class TrackerBridgeService:
                 # Suggest status sync if tracker status changed
                 suggestions.append(SyncSuggestion(
                     issue_ref=issue_ref,
-                    workx_task_ref=link.workx_entity_ref,
+                    agent_taskstate_task_ref=link.agent_taskstate_entity_ref,
                     suggested_action="review_status",
                     suggested_value=snapshot.status,
                     reason=f"Tracker status is '{snapshot.status}'",
@@ -646,7 +646,7 @@ def create_tracker_tables(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS entity_link (
             id TEXT PRIMARY KEY,
             tracker_issue_ref TEXT NOT NULL,
-            workx_entity_ref TEXT NOT NULL,
+            agent_taskstate_entity_ref TEXT NOT NULL,
             role TEXT NOT NULL,
             created_at TEXT NOT NULL
         )
@@ -679,7 +679,7 @@ def create_tracker_tables(conn: sqlite3.Connection) -> None:
 
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_entity_link_task
-        ON entity_link(workx_entity_ref)
+        ON entity_link(agent_taskstate_entity_ref)
     """)
 
     conn.execute("""

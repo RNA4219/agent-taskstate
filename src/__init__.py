@@ -10,7 +10,7 @@ from .typed_ref import (
     parse_ref,
     tracker_ref,
     validate_ref,
-    workx_ref,
+    agent_taskstate_ref,
 )
 
 from .state_transition import (
@@ -43,7 +43,7 @@ from .resolver import (
     SummaryPayload,
     RawPayload,
     ResolverDiagnostics,
-    WorkxLocalResolver,
+    AgentTaskstateLocalResolver,
     RAW_DESCENT_CONDITIONS,
 )
 
@@ -73,7 +73,7 @@ __all__ = [
     "parse_ref",
     "tracker_ref",
     "validate_ref",
-    "workx_ref",
+    "agent_taskstate_ref",
     # state_transition
     "StateTransition",
     "StateTransitionService",
@@ -100,7 +100,7 @@ __all__ = [
     "SummaryPayload",
     "RawPayload",
     "ResolverDiagnostics",
-    "WorkxLocalResolver",
+    "AgentTaskstateLocalResolver",
     "RAW_DESCENT_CONDITIONS",
     # tracker_bridge
     "TrackerBridgeService",

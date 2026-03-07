@@ -283,28 +283,28 @@ class ContextRebuildResolver:
         return diagnostics
 
 
-# Built-in resolver for workx entities (local)
+# Built-in resolver for agent-taskstate entities (local)
 
-class WorkxLocalResolver:
+class AgentTaskstateLocalResolver:
     """
-    Resolver for workx local entities.
-    Resolves refs like workx:task:local:*, workx:decision:local:*, etc.
+    Resolver for agent-taskstate local entities.
+    Resolves refs like agent-taskstate:task:local:*, agent-taskstate:decision:local:*, etc.
     """
 
     def __init__(self, conn=None):
         self.conn = conn
 
     def can_resolve(self, ref: str) -> bool:
-        """Check if this is a workx local ref."""
+        """Check if this is an agent-taskstate local ref."""
         from .typed_ref import parse_ref
         try:
             parsed = parse_ref(ref)
-            return parsed.domain == "workx" and parsed.provider == "local"
+            return parsed.domain == "agent-taskstate" and parsed.provider == "local"
         except ValueError:
             return False
 
     def resolve(self, ref: str) -> ResolvedRef:
-        """Resolve a workx local ref."""
+        """Resolve an agent-taskstate local ref."""
         from .typed_ref import parse_ref
         try:
             parsed = parse_ref(ref)
@@ -351,7 +351,7 @@ class WorkxLocalResolver:
 
         if row:
             return ResolvedRef(
-                ref=f"workx:task:local:{task_id}",
+                ref=f"agent-taskstate:task:local:{task_id}",
                 status=ResolveStatus.RESOLVED,
                 summary=row["title"],
                 metadata={"status": row["status"]},
@@ -359,7 +359,7 @@ class WorkxLocalResolver:
             )
         else:
             return ResolvedRef(
-                ref=f"workx:task:local:{task_id}",
+                ref=f"agent-taskstate:task:local:{task_id}",
                 status=ResolveStatus.UNRESOLVED,
                 error_message=f"Task not found: {task_id}",
             )
@@ -374,7 +374,7 @@ class WorkxLocalResolver:
 
         if row:
             return ResolvedRef(
-                ref=f"workx:decision:local:{decision_id}",
+                ref=f"agent-taskstate:decision:local:{decision_id}",
                 status=ResolveStatus.RESOLVED,
                 summary=row["summary"],
                 metadata={"status": row["status"]},
@@ -382,7 +382,7 @@ class WorkxLocalResolver:
             )
         else:
             return ResolvedRef(
-                ref=f"workx:decision:local:{decision_id}",
+                ref=f"agent-taskstate:decision:local:{decision_id}",
                 status=ResolveStatus.UNRESOLVED,
                 error_message=f"Decision not found: {decision_id}",
             )
@@ -397,7 +397,7 @@ class WorkxLocalResolver:
 
         if row:
             return ResolvedRef(
-                ref=f"workx:context_bundle:local:{bundle_id}",
+                ref=f"agent-taskstate:context_bundle:local:{bundle_id}",
                 status=ResolveStatus.RESOLVED,
                 summary=row["summary"] or row["purpose"],
                 metadata={"purpose": row["purpose"]},
@@ -405,13 +405,13 @@ class WorkxLocalResolver:
             )
         else:
             return ResolvedRef(
-                ref=f"workx:context_bundle:local:{bundle_id}",
+                ref=f"agent-taskstate:context_bundle:local:{bundle_id}",
                 status=ResolveStatus.UNRESOLVED,
                 error_message=f"Bundle not found: {bundle_id}",
             )
 
     def load_summary(self, ref: str) -> Optional[SummaryPayload]:
-        """Load summary for a workx ref."""
+        """Load summary for an agent-taskstate ref."""
         result = self.resolve(ref)
         if result.status == ResolveStatus.RESOLVED and result.summary:
             return SummaryPayload(
@@ -422,8 +422,8 @@ class WorkxLocalResolver:
         return None
 
     def load_raw(self, ref: str, selector: Optional[Dict[str, Any]] = None) -> Optional[RawPayload]:
-        """Load raw content for a workx ref."""
-        # For workx entities, summary is typically sufficient
+        """Load raw content for an agent-taskstate ref."""
+        # For agent-taskstate entities, summary is typically sufficient
         summary = self.load_summary(ref)
         if summary:
             return RawPayload(
