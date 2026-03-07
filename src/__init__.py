@@ -47,6 +47,21 @@ from .resolver import (
     RAW_DESCENT_CONDITIONS,
 )
 
+from .tracker_bridge import (
+    TrackerBridgeService,
+    TrackerConnection,
+    IssueCache,
+    EntityLink,
+    SyncEvent,
+    IssueSnapshot,
+    SyncSuggestion,
+    SyncDirection,
+    SyncStatus,
+    LinkRole,
+    MockTrackerAdapter,
+    create_tracker_tables,
+)
+
 __all__ = [
     # typed_ref
     "TypedRef",
@@ -77,7 +92,7 @@ __all__ = [
     "REBUILD_LEVELS",
     "PURPOSE_TYPES",
     "SOURCE_KINDS",
-    # context_rebuild_resolver
+    # resolver
     "ContextRebuildResolver",
     "ResolveStatus",
     "ResolvedRef",
@@ -87,4 +102,17 @@ __all__ = [
     "ResolverDiagnostics",
     "WorkxLocalResolver",
     "RAW_DESCENT_CONDITIONS",
+    # tracker_bridge
+    "TrackerBridgeService",
+    "TrackerConnection",
+    "IssueCache",
+    "EntityLink",
+    "SyncEvent",
+    "IssueSnapshot",
+    "SyncSuggestion",
+    "SyncDirection",
+    "SyncStatus",
+    "LinkRole",
+    "MockTrackerAdapter",
+    "create_tracker_tables",
 ]
