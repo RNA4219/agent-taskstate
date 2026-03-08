@@ -38,11 +38,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 0012: タスクシードテンプレート (`TASK.codex.md`) 追加
 - 0013: プロジェクトREADME (`README.md`) 追加
 
-## [0.1.0] - YYYY-MM-DD
+## [0.1.0] - 2026-03-09
 
 ### Added
 
-- 初版リリース（予定）
+- 初版リリース
+- MVP仕様書、要件定義、SQLite仕様書
+- CLI実装 (Task/State/Decision/Question/Run/Context Bundle/Export)
+- typed_ref 4セグメント正準形式対応
+- ContextRebuildResolver 実装
+- TrackerBridgeService 実装
+- memx-core統合テスト追加
+
+### Changed
+
+- **BREAKING**: プロジェクト名を `workx` から `agent-taskstate` に変更
+  - typed_refドメイン: `workx:*` → `agent-taskstate:*`
+  - CLIコマンド: `workx` → `agent-taskstate`
+  - DBパス: `~/.workx/workx.db` → `~/.agent-taskstate/agent-taskstate.db`
 
 ### Known Limitations
 
