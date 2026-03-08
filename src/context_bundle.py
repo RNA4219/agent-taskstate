@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from .typed_ref import TypedRef, canonicalize_ref, format_ref, parse_ref
+from .typed_ref import canonicalize_ref
 
 
 @dataclass
@@ -30,6 +30,17 @@ class BundleSource:
     source_kind: str
     selected_raw: bool
     metadata_json: Optional[str]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert source record to dictionary for JSON output."""
+        return {
+            "id": self.id,
+            "context_bundle_id": self.context_bundle_id,
+            "typed_ref": self.typed_ref,
+            "source_kind": self.source_kind,
+            "selected_raw": self.selected_raw,
+            "metadata": json.loads(self.metadata_json) if self.metadata_json else None,
+        }
 
 
 @dataclass
@@ -44,6 +55,7 @@ class ContextBundle:
     state_snapshot_json: str
     decision_digest_json: Optional[str]
     question_digest_json: Optional[str]
+    diagnostics_json: Optional[str]
     raw_included: bool
     generator_version: str
     generated_at: str
@@ -65,19 +77,19 @@ class ContextBundle:
             "state_snapshot": json.loads(self.state_snapshot_json),
             "decision_digest": json.loads(self.decision_digest_json) if self.decision_digest_json else None,
             "question_digest": json.loads(self.question_digest_json) if self.question_digest_json else None,
+            "diagnostics": json.loads(self.diagnostics_json) if self.diagnostics_json else None,
             "raw_included": self.raw_included,
             "generator_version": self.generator_version,
             "generated_at": self.generated_at,
             "created_at": self.created_at,
             "source_refs": self.get_source_refs(),
             "source_count": len(self.sources),
+            "sources": [source.to_dict() for source in self.sources],
         }
 
 
-# Rebuild levels
 REBUILD_LEVELS = {"L1", "L2", "L3"}
 
-# Purpose types
 PURPOSE_TYPES = {
     "continue_work",
     "review_prepare",
@@ -86,7 +98,6 @@ PURPOSE_TYPES = {
     "other",
 }
 
-# Source kinds
 SOURCE_KINDS = {
     "task",
     "decision",
@@ -106,13 +117,12 @@ def now_utc() -> str:
 def gen_id() -> str:
     """Generate a unique ID."""
     import uuid
+
     return uuid.uuid4().hex
 
 
 class ContextBundleService:
-    """
-    Service for creating and managing context bundles.
-    """
+    """Service for creating and managing context bundles."""
 
     def __init__(self, conn: sqlite3.Connection, generator_version: str = "1.0.0"):
         self.conn = conn
@@ -126,26 +136,11 @@ class ContextBundleService:
         state_snapshot: Dict[str, Any],
         decision_digest: Optional[Dict[str, Any]] = None,
         question_digest: Optional[Dict[str, Any]] = None,
+        diagnostics: Optional[Dict[str, Any]] = None,
         summary: Optional[str] = None,
         raw_included: bool = False,
     ) -> ContextBundle:
-        """
-        Create a new context bundle.
-
-        Args:
-            task_id: Task ID
-            purpose: Purpose of the bundle
-            rebuild_level: L1/L2/L3
-            state_snapshot: Current state snapshot
-            decision_digest: Digest of decisions
-            question_digest: Digest of open questions
-            summary: Optional summary
-            raw_included: Whether raw data is included
-
-        Returns:
-            Created ContextBundle
-        """
-        # Validate inputs
+        """Create a new context bundle."""
         if purpose not in PURPOSE_TYPES:
             raise ValueError(f"Invalid purpose: {purpose}")
         if rebuild_level not in REBUILD_LEVELS:
@@ -154,14 +149,13 @@ class ContextBundleService:
         bundle_id = gen_id()
         now = now_utc()
 
-        # Insert bundle
         self.conn.execute(
             """
             INSERT INTO context_bundle
                 (id, task_id, purpose, rebuild_level, summary, state_snapshot_json,
-                 decision_digest_json, question_digest_json, raw_included,
+                 decision_digest_json, question_digest_json, diagnostics_json, raw_included,
                  generator_version, generated_at, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 bundle_id,
@@ -172,6 +166,7 @@ class ContextBundleService:
                 json.dumps(state_snapshot),
                 json.dumps(decision_digest) if decision_digest else None,
                 json.dumps(question_digest) if question_digest else None,
+                json.dumps(diagnostics) if diagnostics else None,
                 1 if raw_included else 0,
                 self.generator_version,
                 now,
@@ -188,6 +183,7 @@ class ContextBundleService:
             state_snapshot_json=json.dumps(state_snapshot),
             decision_digest_json=json.dumps(decision_digest) if decision_digest else None,
             question_digest_json=json.dumps(question_digest) if question_digest else None,
+            diagnostics_json=json.dumps(diagnostics) if diagnostics else None,
             raw_included=raw_included,
             generator_version=self.generator_version,
             generated_at=now,
@@ -202,36 +198,29 @@ class ContextBundleService:
         selected_raw: bool = False,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> BundleSource:
-        """
-        Add a source reference to a bundle.
-
-        Args:
-            bundle_id: Context bundle ID
-            typed_ref: Typed reference to the source
-            source_kind: Kind of source
-            selected_raw: Whether this is raw data selection
-            metadata: Optional metadata
-
-        Returns:
-            Created BundleSource
-        """
-        # Validate inputs
+        """Add a source reference to a bundle."""
         if source_kind not in SOURCE_KINDS:
             raise ValueError(f"Invalid source_kind: {source_kind}")
 
-        # Canonicalize ref
         canonical_ref = canonicalize_ref(typed_ref)
-
         source_id = gen_id()
         now = now_utc()
 
         self.conn.execute(
             """
             INSERT INTO context_bundle_source
-                (id, context_bundle_id, typed_ref, source_kind, created_at)
-            VALUES (?, ?, ?, ?, ?)
+                (id, context_bundle_id, typed_ref, source_kind, selected_raw, metadata_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (source_id, bundle_id, canonical_ref, source_kind, now),
+            (
+                source_id,
+                bundle_id,
+                canonical_ref,
+                source_kind,
+                1 if selected_raw else 0,
+                json.dumps(metadata) if metadata is not None else None,
+                now,
+            ),
         )
 
         return BundleSource(
@@ -240,23 +229,15 @@ class ContextBundleService:
             typed_ref=canonical_ref,
             source_kind=source_kind,
             selected_raw=selected_raw,
-            metadata_json=json.dumps(metadata) if metadata else None,
+            metadata_json=json.dumps(metadata) if metadata is not None else None,
         )
 
     def get_bundle(self, bundle_id: str) -> Optional[ContextBundle]:
-        """
-        Get a context bundle by ID.
-
-        Args:
-            bundle_id: Bundle ID
-
-        Returns:
-            ContextBundle or None if not found
-        """
+        """Get a context bundle by ID."""
         cursor = self.conn.execute(
             """
             SELECT id, task_id, purpose, rebuild_level, summary, state_snapshot_json,
-                   decision_digest_json, question_digest_json, raw_included,
+                   decision_digest_json, question_digest_json, diagnostics_json, raw_included,
                    generator_version, generated_at, created_at
             FROM context_bundle
             WHERE id = ?
@@ -277,27 +258,17 @@ class ContextBundleService:
             state_snapshot_json=row[5],
             decision_digest_json=row[6],
             question_digest_json=row[7],
-            raw_included=bool(row[8]),
-            generator_version=row[9],
-            generated_at=row[10],
-            created_at=row[11],
+            diagnostics_json=row[8],
+            raw_included=bool(row[9]),
+            generator_version=row[10],
+            generated_at=row[11],
+            created_at=row[12],
         )
-
-        # Load sources
         bundle.sources = self._load_sources(bundle_id)
-
         return bundle
 
     def get_latest_bundle(self, task_id: str) -> Optional[ContextBundle]:
-        """
-        Get the latest context bundle for a task.
-
-        Args:
-            task_id: Task ID
-
-        Returns:
-            Latest ContextBundle or None
-        """
+        """Get the latest context bundle for a task."""
         cursor = self.conn.execute(
             """
             SELECT id FROM context_bundle
@@ -315,15 +286,7 @@ class ContextBundleService:
         return self.get_bundle(row[0])
 
     def list_bundles(self, task_id: str) -> List[ContextBundle]:
-        """
-        List all context bundles for a task.
-
-        Args:
-            task_id: Task ID
-
-        Returns:
-            List of ContextBundle, newest first
-        """
+        """List all context bundles for a task."""
         cursor = self.conn.execute(
             """
             SELECT id FROM context_bundle
@@ -345,7 +308,7 @@ class ContextBundleService:
         """Load sources for a bundle."""
         cursor = self.conn.execute(
             """
-            SELECT id, context_bundle_id, typed_ref, source_kind, created_at
+            SELECT id, context_bundle_id, typed_ref, source_kind, selected_raw, metadata_json, created_at
             FROM context_bundle_source
             WHERE context_bundle_id = ?
             ORDER BY created_at ASC
@@ -361,8 +324,8 @@ class ContextBundleService:
                     context_bundle_id=row[1],
                     typed_ref=row[2],
                     source_kind=row[3],
-                    selected_raw=False,
-                    metadata_json=None,
+                    selected_raw=bool(row[4]),
+                    metadata_json=row[5],
                 )
             )
 
@@ -382,6 +345,7 @@ def create_bundle_tables(conn: sqlite3.Connection) -> None:
             state_snapshot_json TEXT NOT NULL,
             decision_digest_json TEXT,
             question_digest_json TEXT,
+            diagnostics_json TEXT,
             raw_included INTEGER NOT NULL DEFAULT 0,
             generator_version TEXT NOT NULL,
             generated_at TEXT NOT NULL,
@@ -398,13 +362,23 @@ def create_bundle_tables(conn: sqlite3.Connection) -> None:
             context_bundle_id TEXT NOT NULL,
             typed_ref TEXT NOT NULL,
             source_kind TEXT NOT NULL,
+            selected_raw INTEGER NOT NULL DEFAULT 0,
+            metadata_json TEXT,
             created_at TEXT NOT NULL,
             FOREIGN KEY (context_bundle_id) REFERENCES context_bundle(id)
         )
         """
     )
 
-    # Create indexes
+    _ensure_column(conn, "context_bundle", "diagnostics_json", "TEXT")
+    _ensure_column(
+        conn,
+        "context_bundle_source",
+        "selected_raw",
+        "INTEGER NOT NULL DEFAULT 0",
+    )
+    _ensure_column(conn, "context_bundle_source", "metadata_json", "TEXT")
+
     conn.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_context_bundle_task
@@ -418,3 +392,19 @@ def create_bundle_tables(conn: sqlite3.Connection) -> None:
         ON context_bundle_source(context_bundle_id)
         """
     )
+
+
+def _ensure_column(
+    conn: sqlite3.Connection,
+    table_name: str,
+    column_name: str,
+    column_ddl: str,
+) -> None:
+    """Add a missing column to an existing table."""
+    existing_columns = {
+        row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    }
+    if column_name not in existing_columns:
+        conn.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_ddl}"
+        )

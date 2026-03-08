@@ -16,20 +16,24 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Protocol
 
+from .typed_ref import canonicalize_ref, format_ref, parse_ref
+
 
 class SyncDirection(Enum):
     """Direction of sync."""
+
     INBOUND = "inbound"
     OUTBOUND = "outbound"
 
 
 class SyncStatus(Enum):
     """Status of sync operation."""
+
     SUCCESS = "success"
     FAILED = "failed"
     PARTIAL = "partial"
@@ -37,6 +41,7 @@ class SyncStatus(Enum):
 
 class LinkRole(Enum):
     """Role of entity link."""
+
     PRIMARY = "primary"
     RELATED = "related"
     DUPLICATE = "duplicate"
@@ -46,10 +51,11 @@ class LinkRole(Enum):
 @dataclass
 class TrackerConnection:
     """Connection configuration for a tracker."""
+
     id: str
-    provider: str  # jira, github, linear
+    provider: str
     name: str
-    config_json: str  # Provider-specific config
+    config_json: str
     created_at: str
     updated_at: str
 
@@ -57,16 +63,17 @@ class TrackerConnection:
 @dataclass
 class IssueCache:
     """Cached issue from external tracker."""
+
     id: str
     connection_id: str
-    issue_ref: str  # tracker:issue:provider:KEY-123
-    remote_key: str  # Original key (PROJ-123, owner/repo#123)
+    issue_ref: str
+    remote_key: str
     title: str
     status: str
     assignee: Optional[str]
     description: Optional[str]
     labels_json: Optional[str]
-    raw_json: Optional[str]  # Full raw response
+    raw_json: Optional[str]
     fetched_at: str
     updated_at: str
 
@@ -74,20 +81,22 @@ class IssueCache:
 @dataclass
 class EntityLink:
     """Link between tracker issue and agent-taskstate entity."""
+
     id: str
     tracker_issue_ref: str
     agent_taskstate_entity_ref: str
-    role: str  # primary, related, duplicate, blocks
+    role: str
     created_at: str
 
 
 @dataclass
 class SyncEvent:
     """Record of sync operation."""
+
     id: str
     connection_id: str
-    direction: str  # inbound, outbound
-    status: str  # success, failed, partial
+    direction: str
+    status: str
     issue_ref: Optional[str]
     details_json: Optional[str]
     error_message: Optional[str]
@@ -97,6 +106,7 @@ class SyncEvent:
 @dataclass
 class IssueSnapshot:
     """Minimal snapshot for context build."""
+
     issue_ref: str
     remote_key: str
     title: str
@@ -120,9 +130,10 @@ class IssueSnapshot:
 @dataclass
 class SyncSuggestion:
     """Suggestion for agent-taskstate update based on tracker change."""
+
     issue_ref: str
     agent_taskstate_task_ref: str
-    suggested_action: str  # update_status, add_comment, etc.
+    suggested_action: str
     suggested_value: str
     reason: str
     requires_confirmation: bool = True
@@ -134,6 +145,7 @@ def now_utc() -> str:
 
 def gen_id() -> str:
     import uuid
+
     return uuid.uuid4().hex
 
 
@@ -141,19 +153,15 @@ class TrackerAdapter(Protocol):
     """Protocol for tracker adapters."""
 
     def fetch_issue(self, issue_key: str) -> Optional[Dict[str, Any]]:
-        """Fetch a single issue from the tracker."""
         ...
 
     def normalize_issue(self, raw: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize raw issue to standard format."""
         ...
 
     def post_comment(self, issue_key: str, comment: str) -> bool:
-        """Post a comment to an issue."""
         ...
 
     def update_status(self, issue_key: str, status: str) -> bool:
-        """Update issue status."""
         ...
 
 
@@ -183,11 +191,7 @@ class MockTrackerAdapter:
 
 
 class TrackerBridgeService:
-    """
-    Service for tracker-bridge integration.
-
-    Maintains separation: tracker is auxiliary, not source of truth.
-    """
+    """Service for tracker-bridge integration."""
 
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
@@ -196,6 +200,45 @@ class TrackerBridgeService:
     def register_adapter(self, provider: str, adapter: TrackerAdapter) -> None:
         """Register an adapter for a provider."""
         self._adapters[provider] = adapter
+
+    def _normalize_issue_ref(self, issue_ref: str) -> str:
+        """Canonicalize and validate a tracker issue reference."""
+        try:
+            canonical_ref = canonicalize_ref(issue_ref)
+            parsed = parse_ref(canonical_ref)
+        except ValueError as exc:
+            raise ValueError("issue_ref must be a tracker issue typed_ref") from exc
+        if parsed.domain != "tracker" or parsed.entity_type != "issue":
+            raise ValueError("issue_ref must be a tracker issue typed_ref")
+        return canonical_ref
+
+    def _normalize_task_ref(self, task_ref: str) -> str:
+        """Canonicalize and validate an agent-taskstate task reference."""
+        try:
+            canonical_ref = canonicalize_ref(task_ref)
+            parsed = parse_ref(canonical_ref)
+        except ValueError as exc:
+            raise ValueError(
+                "task_ref must be an agent-taskstate local task typed_ref"
+            ) from exc
+        if (
+            parsed.domain != "agent-taskstate"
+            or parsed.entity_type != "task"
+            or parsed.provider != "local"
+        ):
+            raise ValueError(
+                "task_ref must be an agent-taskstate local task typed_ref"
+            )
+        return canonical_ref
+
+    def _normalize_link_role(self, role: str) -> str:
+        """Validate and normalize link role values."""
+        if isinstance(role, LinkRole):
+            return role.value
+        try:
+            return LinkRole(role).value
+        except ValueError as exc:
+            raise ValueError(f"Invalid link role: {role}") from exc
 
     def create_connection(
         self,
@@ -230,17 +273,7 @@ class TrackerBridgeService:
         connection_id: str,
         issue_key: str,
     ) -> Optional[IssueCache]:
-        """
-        Fetch an issue from external tracker and cache it.
-
-        Args:
-            connection_id: Tracker connection ID
-            issue_key: Issue key (e.g., PROJ-123)
-
-        Returns:
-            Cached issue or None
-        """
-        # Get connection
+        """Fetch an issue from external tracker and cache it."""
         cursor = self.conn.execute(
             "SELECT id, provider FROM tracker_connection WHERE id = ?",
             (connection_id,),
@@ -252,21 +285,31 @@ class TrackerBridgeService:
         provider = row["provider"]
         adapter = self._adapters.get(provider)
         if not adapter:
+            self._record_sync_event(
+                connection_id=connection_id,
+                direction=SyncDirection.INBOUND,
+                status=SyncStatus.FAILED,
+                issue_ref=format_ref("tracker", "issue", issue_key, provider),
+                details={"action": "fetch", "issue_key": issue_key},
+                error_message=f"No adapter registered for provider: {provider}",
+            )
             return None
 
-        # Fetch from external
         raw = adapter.fetch_issue(issue_key)
         if not raw:
+            self._record_sync_event(
+                connection_id=connection_id,
+                direction=SyncDirection.INBOUND,
+                status=SyncStatus.FAILED,
+                issue_ref=format_ref("tracker", "issue", issue_key, provider),
+                details={"action": "fetch", "issue_key": issue_key},
+                error_message=f"Issue not found: {issue_key}",
+            )
             return None
 
-        # Normalize
         normalized = adapter.normalize_issue(raw)
-
-        # Generate issue_ref
-        from .typed_ref import format_ref
-        issue_ref = format_ref("tracker", "issue", issue_key, provider)
-
-        # Save to cache
+        remote_key = normalized["remote_key"]
+        issue_ref = format_ref("tracker", "issue", remote_key, provider)
         cache_id = gen_id()
         now = now_utc()
 
@@ -281,7 +324,7 @@ class TrackerBridgeService:
                 cache_id,
                 connection_id,
                 issue_ref,
-                normalized["remote_key"],
+                remote_key,
                 normalized["title"],
                 normalized["status"],
                 normalized.get("assignee"),
@@ -293,7 +336,6 @@ class TrackerBridgeService:
             ),
         )
 
-        # Record sync event
         self._record_sync_event(
             connection_id=connection_id,
             direction=SyncDirection.INBOUND,
@@ -306,7 +348,7 @@ class TrackerBridgeService:
             id=cache_id,
             connection_id=connection_id,
             issue_ref=issue_ref,
-            remote_key=normalized["remote_key"],
+            remote_key=remote_key,
             title=normalized["title"],
             status=normalized["status"],
             assignee=normalized.get("assignee"),
@@ -323,17 +365,10 @@ class TrackerBridgeService:
         task_ref: str,
         role: str = "primary",
     ) -> EntityLink:
-        """
-        Link a tracker issue to an agent-taskstate task.
-
-        Args:
-            issue_ref: tracker:issue:provider:KEY-123
-            task_ref: agent-taskstate:task:local:task_001
-            role: primary, related, duplicate, blocks
-
-        Returns:
-            EntityLink
-        """
+        """Link a tracker issue to an agent-taskstate task."""
+        issue_ref = self._normalize_issue_ref(issue_ref)
+        task_ref = self._normalize_task_ref(task_ref)
+        role = self._normalize_link_role(role)
         link_id = gen_id()
         now = now_utc()
 
@@ -356,6 +391,7 @@ class TrackerBridgeService:
 
     def get_issue_links(self, issue_ref: str) -> List[EntityLink]:
         """Get all links for an issue."""
+        issue_ref = self._normalize_issue_ref(issue_ref)
         cursor = self.conn.execute(
             """
             SELECT id, tracker_issue_ref, agent_taskstate_entity_ref, role, created_at
@@ -367,17 +403,20 @@ class TrackerBridgeService:
 
         links = []
         for row in cursor.fetchall():
-            links.append(EntityLink(
-                id=row[0],
-                tracker_issue_ref=row[1],
-                agent_taskstate_entity_ref=row[2],
-                role=row[3],
-                created_at=row[4],
-            ))
+            links.append(
+                EntityLink(
+                    id=row[0],
+                    tracker_issue_ref=row[1],
+                    agent_taskstate_entity_ref=row[2],
+                    role=row[3],
+                    created_at=row[4],
+                )
+            )
         return links
 
     def get_task_links(self, task_ref: str) -> List[EntityLink]:
         """Get all tracker links for a task."""
+        task_ref = self._normalize_task_ref(task_ref)
         cursor = self.conn.execute(
             """
             SELECT id, tracker_issue_ref, agent_taskstate_entity_ref, role, created_at
@@ -389,25 +428,20 @@ class TrackerBridgeService:
 
         links = []
         for row in cursor.fetchall():
-            links.append(EntityLink(
-                id=row[0],
-                tracker_issue_ref=row[1],
-                agent_taskstate_entity_ref=row[2],
-                role=row[3],
-                created_at=row[4],
-            ))
+            links.append(
+                EntityLink(
+                    id=row[0],
+                    tracker_issue_ref=row[1],
+                    agent_taskstate_entity_ref=row[2],
+                    role=row[3],
+                    created_at=row[4],
+                )
+            )
         return links
 
     def get_issue_snapshot(self, issue_ref: str) -> Optional[IssueSnapshot]:
-        """
-        Get minimal snapshot for context build.
-
-        Args:
-            issue_ref: tracker:issue:provider:KEY-123
-
-        Returns:
-            IssueSnapshot or None
-        """
+        """Get minimal snapshot for context build."""
+        issue_ref = self._normalize_issue_ref(issue_ref)
         cursor = self.conn.execute(
             """
             SELECT issue_ref, remote_key, title, status, assignee, updated_at
@@ -421,6 +455,18 @@ class TrackerBridgeService:
         if not row:
             return None
 
+        sync_cursor = self.conn.execute(
+            """
+            SELECT status
+            FROM sync_event
+            WHERE issue_ref = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (issue_ref,),
+        )
+        sync_row = sync_cursor.fetchone()
+
         return IssueSnapshot(
             issue_ref=row[0],
             remote_key=row[1],
@@ -428,7 +474,7 @@ class TrackerBridgeService:
             status=row[3],
             assignee=row[4],
             updated_at=row[5],
-            last_sync_result="success",
+            last_sync_result=sync_row[0] if sync_row else "unknown",
         )
 
     def post_outbound_comment(
@@ -437,17 +483,7 @@ class TrackerBridgeService:
         issue_key: str,
         comment: str,
     ) -> bool:
-        """
-        Post a comment to external tracker (outbound).
-
-        Args:
-            connection_id: Tracker connection ID
-            issue_key: Issue key
-            comment: Comment text
-
-        Returns:
-            True if successful
-        """
+        """Post a comment to external tracker (outbound)."""
         cursor = self.conn.execute(
             "SELECT provider FROM tracker_connection WHERE id = ?",
             (connection_id,),
@@ -459,12 +495,17 @@ class TrackerBridgeService:
         provider = row["provider"]
         adapter = self._adapters.get(provider)
         if not adapter:
+            self._record_sync_event(
+                connection_id=connection_id,
+                direction=SyncDirection.OUTBOUND,
+                status=SyncStatus.FAILED,
+                issue_ref=format_ref("tracker", "issue", issue_key, provider),
+                details={"action": "post_comment"},
+                error_message=f"No adapter registered for provider: {provider}",
+            )
             return False
 
         success = adapter.post_comment(issue_key, comment)
-
-        # Record sync event
-        from .typed_ref import format_ref
         issue_ref = format_ref("tracker", "issue", issue_key, provider)
 
         self._record_sync_event(
@@ -473,6 +514,49 @@ class TrackerBridgeService:
             status=SyncStatus.SUCCESS if success else SyncStatus.FAILED,
             issue_ref=issue_ref,
             details={"action": "post_comment"},
+            error_message=None if success else f"Failed to post comment: {issue_key}",
+        )
+
+        return success
+
+    def update_outbound_status(
+        self,
+        connection_id: str,
+        issue_key: str,
+        status: str,
+    ) -> bool:
+        """Reflect an internal status to the external tracker."""
+        cursor = self.conn.execute(
+            "SELECT provider FROM tracker_connection WHERE id = ?",
+            (connection_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return False
+
+        provider = row["provider"]
+        adapter = self._adapters.get(provider)
+        issue_ref = format_ref("tracker", "issue", issue_key, provider)
+        if not adapter:
+            self._record_sync_event(
+                connection_id=connection_id,
+                direction=SyncDirection.OUTBOUND,
+                status=SyncStatus.FAILED,
+                issue_ref=issue_ref,
+                details={"action": "update_status", "status": status},
+                error_message=f"No adapter registered for provider: {provider}",
+            )
+            return False
+
+        success = adapter.update_status(issue_key, status)
+
+        self._record_sync_event(
+            connection_id=connection_id,
+            direction=SyncDirection.OUTBOUND,
+            status=SyncStatus.SUCCESS if success else SyncStatus.FAILED,
+            issue_ref=issue_ref,
+            details={"action": "update_status", "status": status},
+            error_message=None if success else f"Failed to update status: {issue_key}",
         )
 
         return success
@@ -481,38 +565,25 @@ class TrackerBridgeService:
         self,
         issue_ref: str,
     ) -> List[SyncSuggestion]:
-        """
-        Generate suggestions for agent-taskstate updates based on tracker changes.
-
-        Does NOT auto-update agent-taskstate state. Returns suggestions for operator.
-
-        Args:
-            issue_ref: tracker:issue:provider:KEY-123
-
-        Returns:
-            List of SyncSuggestion
-        """
+        """Generate suggestions for agent-taskstate updates based on tracker changes."""
         suggestions = []
-
-        # Get cached issue
         snapshot = self.get_issue_snapshot(issue_ref)
         if not snapshot:
             return suggestions
 
-        # Get linked tasks
         links = self.get_issue_links(issue_ref)
-
         for link in links:
             if link.role == "primary":
-                # Suggest status sync if tracker status changed
-                suggestions.append(SyncSuggestion(
-                    issue_ref=issue_ref,
-                    agent_taskstate_task_ref=link.agent_taskstate_entity_ref,
-                    suggested_action="review_status",
-                    suggested_value=snapshot.status,
-                    reason=f"Tracker status is '{snapshot.status}'",
-                    requires_confirmation=True,
-                ))
+                suggestions.append(
+                    SyncSuggestion(
+                        issue_ref=issue_ref,
+                        agent_taskstate_task_ref=link.agent_taskstate_entity_ref,
+                        suggested_action="review_status",
+                        suggested_value=snapshot.status,
+                        reason=f"Tracker status is '{snapshot.status}'",
+                        requires_confirmation=True,
+                    )
+                )
 
         return suggestions
 
@@ -522,17 +593,7 @@ class TrackerBridgeService:
         issue_ref: Optional[str] = None,
         limit: int = 100,
     ) -> List[SyncEvent]:
-        """
-        Get sync events for tracking.
-
-        Args:
-            connection_id: Filter by connection
-            issue_ref: Filter by issue
-            limit: Max results
-
-        Returns:
-            List of SyncEvent
-        """
+        """Get sync events for tracking."""
         query = """
             SELECT id, connection_id, direction, status, issue_ref,
                    details_json, error_message, created_at
@@ -545,6 +606,7 @@ class TrackerBridgeService:
             query += " AND connection_id = ?"
             params.append(connection_id)
         if issue_ref:
+            issue_ref = self._normalize_issue_ref(issue_ref)
             query += " AND issue_ref = ?"
             params.append(issue_ref)
 
@@ -555,16 +617,18 @@ class TrackerBridgeService:
 
         events = []
         for row in cursor.fetchall():
-            events.append(SyncEvent(
-                id=row[0],
-                connection_id=row[1],
-                direction=row[2],
-                status=row[3],
-                issue_ref=row[4],
-                details_json=row[5],
-                error_message=row[6],
-                created_at=row[7],
-            ))
+            events.append(
+                SyncEvent(
+                    id=row[0],
+                    connection_id=row[1],
+                    direction=row[2],
+                    status=row[3],
+                    issue_ref=row[4],
+                    details_json=row[5],
+                    error_message=row[6],
+                    created_at=row[7],
+                )
+            )
         return events
 
     def _record_sync_event(
@@ -613,7 +677,8 @@ class TrackerBridgeService:
 
 def create_tracker_tables(conn: sqlite3.Connection) -> None:
     """Create tracker-bridge tables."""
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS tracker_connection (
             id TEXT PRIMARY KEY,
             provider TEXT NOT NULL,
@@ -622,9 +687,11 @@ def create_tracker_tables(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
-    """)
+        """
+    )
 
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS issue_cache (
             id TEXT PRIMARY KEY,
             connection_id TEXT NOT NULL,
@@ -640,9 +707,11 @@ def create_tracker_tables(conn: sqlite3.Connection) -> None:
             updated_at TEXT NOT NULL,
             FOREIGN KEY (connection_id) REFERENCES tracker_connection(id)
         )
-    """)
+        """
+    )
 
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS entity_link (
             id TEXT PRIMARY KEY,
             tracker_issue_ref TEXT NOT NULL,
@@ -650,9 +719,11 @@ def create_tracker_tables(conn: sqlite3.Connection) -> None:
             role TEXT NOT NULL,
             created_at TEXT NOT NULL
         )
-    """)
+        """
+    )
 
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS sync_event (
             id TEXT PRIMARY KEY,
             connection_id TEXT NOT NULL,
@@ -664,25 +735,34 @@ def create_tracker_tables(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             FOREIGN KEY (connection_id) REFERENCES tracker_connection(id)
         )
-    """)
+        """
+    )
 
-    # Indexes
-    conn.execute("""
+    conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_issue_cache_ref
         ON issue_cache(issue_ref)
-    """)
+        """
+    )
 
-    conn.execute("""
+    conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_entity_link_issue
         ON entity_link(tracker_issue_ref)
-    """)
+        """
+    )
 
-    conn.execute("""
+    conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_entity_link_task
         ON entity_link(agent_taskstate_entity_ref)
-    """)
+        """
+    )
 
-    conn.execute("""
+    conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_sync_event_connection
         ON sync_event(connection_id, created_at DESC)
-    """)
+        """
+    )
+

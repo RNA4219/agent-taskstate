@@ -94,6 +94,7 @@ CREATE TABLE context_bundle (
     state_snapshot_json   TEXT NOT NULL,
     decision_digest_json  TEXT,
     question_digest_json  TEXT,
+    diagnostics_json      TEXT,
     raw_included          INTEGER NOT NULL DEFAULT 0,
     generator_version     TEXT,
     generated_at          TEXT NOT NULL,
@@ -106,6 +107,8 @@ CREATE TABLE context_bundle_source (
     context_bundle_id     TEXT NOT NULL,
     typed_ref             TEXT NOT NULL,
     source_kind           TEXT NOT NULL,
+    selected_raw          INTEGER NOT NULL DEFAULT 0,
+    metadata_json         TEXT,
     created_at            TEXT NOT NULL,
     FOREIGN KEY (context_bundle_id) REFERENCES context_bundle(id)
 );

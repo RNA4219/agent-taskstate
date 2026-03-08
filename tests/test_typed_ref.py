@@ -42,6 +42,11 @@ class TestFormatRef:
         result = format_ref("tracker", "issue", "owner/repo#123", "github")
         assert result == "tracker:issue:github:owner/repo#123"
 
+    def test_format_normalizes_canonical_case(self):
+        """Formatter always emits lowercase canonical segments."""
+        result = format_ref("TRACKER", "ISSUE", "PROJ-123", "JIRA")
+        assert result == "tracker:issue:jira:PROJ-123"
+
 
 class TestParseRef:
     """Test parse_ref function."""
@@ -59,7 +64,7 @@ class TestParseRef:
         ref = parse_ref("agent-taskstate:task:task_01JABC")
         assert ref.domain == "agent-taskstate"
         assert ref.entity_type == "task"
-        assert ref.provider == "local"  # Default provider
+        assert ref.provider == "local"
         assert ref.entity_id == "task_01JABC"
 
     def test_parse_uppercase_domain_normalized(self):
@@ -151,6 +156,12 @@ class TestValidateRef:
         assert is_valid is False
         assert "Invalid typed_ref format" in error
 
+    def test_validate_unknown_domain(self):
+        """Unknown domain fails validation."""
+        is_valid, error = validate_ref("unknown:task:local:id_001")
+        assert is_valid is False
+        assert "Unknown typed_ref domain" in error
+
     def test_is_valid_true(self):
         """is_valid_ref returns True for valid ref."""
         assert is_valid_ref("agent-taskstate:task:local:task_01JABC") is True
@@ -177,6 +188,11 @@ class TestCanonicalizeRef:
         """Memx evidence ref is canonicalized."""
         result = canonicalize_ref("memx:evidence:ev_01JABC")
         assert result == "memx:evidence:local:ev_01JABC"
+
+    def test_canonicalize_unknown_domain_raises(self):
+        """Unknown domains cannot be canonicalized for storage."""
+        with pytest.raises(ValueError, match="Unknown typed_ref domain"):
+            canonicalize_ref("unknown:task:id_001")
 
 
 class TestConvenienceFunctions:
@@ -267,7 +283,6 @@ class TestIntegrationScenarios:
         canonical = canonicalize_ref(legacy)
         assert canonical == "agent-taskstate:task:local:task_old_id"
 
-        # Can parse both
         parsed_legacy = parse_ref(legacy)
         parsed_canonical = parse_ref(canonical)
         assert parsed_legacy == parsed_canonical

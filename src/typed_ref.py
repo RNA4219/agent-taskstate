@@ -65,7 +65,16 @@ def format_ref(
         >>> format_ref("agent-taskstate", "task", "task_01JABC")
         'agent-taskstate:task:local:task_01JABC'
     """
-    return f"{domain}:{entity_type}:{provider}:{entity_id}"
+    if not domain:
+        raise ValueError("domain cannot be empty")
+    if not entity_type:
+        raise ValueError("entity_type cannot be empty")
+    if not provider:
+        raise ValueError("provider cannot be empty")
+    if not entity_id:
+        raise ValueError("entity_id cannot be empty")
+
+    return f"{domain.lower()}:{entity_type.lower()}:{provider.lower()}:{entity_id}"
 
 
 def parse_ref(ref: str) -> TypedRef:
@@ -93,10 +102,8 @@ def parse_ref(ref: str) -> TypedRef:
     parts = ref.split(":")
 
     if len(parts) == 4:
-        # Canonical 4-segment format
         domain, entity_type, provider, entity_id = parts
     elif len(parts) == 3:
-        # Legacy 3-segment format: canonicalize with default provider
         domain, entity_type, entity_id = parts
         provider = DEFAULT_PROVIDER
     else:
@@ -105,7 +112,6 @@ def parse_ref(ref: str) -> TypedRef:
             f"Expected 3 or 4 segments separated by ':'."
         )
 
-    # Validate non-empty segments
     if not domain:
         raise ValueError("domain cannot be empty")
     if not entity_type:
@@ -119,7 +125,7 @@ def parse_ref(ref: str) -> TypedRef:
         domain=domain.lower(),
         entity_type=entity_type.lower(),
         provider=provider.lower(),
-        entity_id=entity_id,  # Preserve original case for entity_id
+        entity_id=entity_id,
     )
 
 
@@ -140,7 +146,9 @@ def validate_ref(ref: str) -> Tuple[bool, Optional[str]]:
         (False, "Invalid typed_ref format...")
     """
     try:
-        parse_ref(ref)
+        parsed = parse_ref(ref)
+        if not is_known_domain(parsed.domain):
+            return False, f"Unknown typed_ref domain: {parsed.domain}"
         return True, None
     except ValueError as e:
         return False, str(e)
@@ -182,6 +190,8 @@ def canonicalize_ref(ref: str) -> str:
         'agent-taskstate:task:local:task_01JABC'
     """
     parsed = parse_ref(ref)
+    if not is_known_domain(parsed.domain):
+        raise ValueError(f"Unknown typed_ref domain: {parsed.domain}")
     return str(parsed)
 
 
