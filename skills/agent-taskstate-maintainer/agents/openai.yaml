@@ -1,0 +1,4 @@
+interface:
+  display_name: "agent-taskstate Maintainer"
+  short_description: "agent-taskstate repo maintenance workflow"
+  default_prompt: "Use $agent-taskstate-maintainer to review or update the agent-taskstate repo, keep docs/tests/schema aligned, and validate with pytest -q."

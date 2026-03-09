@@ -14,6 +14,7 @@
 | 主要契約 | `typed_ref` は `<domain>:<entity_type>:<provider>:<entity_id>` の 4 セグメント canonical |
 | 主な利用者 | LLM エージェント、CLI 利用の開発者、検収担当 |
 | 主な検証コマンド | `pytest -q` |
+| 推奨 Skill | [`$agent-taskstate-maintainer`](skills/agent-taskstate-maintainer/SKILL.md) |
 | 人間向け概要 | [README.human.md](README.human.md) |
 
 ## Read Order
@@ -36,6 +37,7 @@
 | resolver の確認 | [docs/kv-priority-roadmap/03-workx-memx-context-rebuild-resolver.md](docs/kv-priority-roadmap/03-workx-memx-context-rebuild-resolver.md) | [src/resolver.py](src/resolver.py) | `src/resolver.py`, `tests/test_context_rebuild_resolver.py` |
 | tracker 連携の確認 | [docs/kv-priority-roadmap/04-tracker-bridge-minimum-integration.md](docs/kv-priority-roadmap/04-tracker-bridge-minimum-integration.md) | [src/tracker_bridge.py](src/tracker_bridge.py) | `src/tracker_bridge.py`, `tests/test_tracker_bridge.py` |
 | 受入確認 | [EVALUATION.md](EVALUATION.md) | [CHECKLISTS.md](CHECKLISTS.md) | `tests/`, `docs/tests/*.feature` |
+| Codex で repo 専用運用 | [skills/agent-taskstate-maintainer/SKILL.md](skills/agent-taskstate-maintainer/SKILL.md) | [README.human.md](README.human.md) | `skills/agent-taskstate-maintainer/`, `README.md` |
 
 ## Runtime Surface
 
@@ -45,6 +47,7 @@
 | テスト | `tests/` |
 | schema | `docs/schema/agent-taskstate.sql`, `docs/migrations/001_init.sql` |
 | 参考実装 | `docs/src/agent-taskstate_cli.py` |
+| repo skill | `skills/agent-taskstate-maintainer/` |
 
 ## Verification
 
@@ -54,6 +57,7 @@
 | typed_ref 周辺 | `pytest -q tests/test_typed_ref.py` |
 | bundle 周辺 | `pytest -q tests/test_context_bundle.py tests/test_context_rebuild_resolver.py` |
 | tracker 周辺 | `pytest -q tests/test_tracker_bridge.py` |
+| skill 検証 | `python C:/Users/ryo-n/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/agent-taskstate-maintainer` |
 
 ## Output Expectations
 
