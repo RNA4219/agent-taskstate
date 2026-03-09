@@ -2,8 +2,6 @@
 
 人間向けの概要は [README-human.md](README-human.md) を参照してください。
 
-保守方針: `docs/kv-priority-roadmap/` と実装、テスト、SQL、README の整合維持を優先します。新規作業では未達要求と回帰リスクの確認を先に行ってください。
-
 ## 同梱 Skill
 
 - Skill 名: `$agent-taskstate-maintainer`
