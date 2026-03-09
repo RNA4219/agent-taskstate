@@ -33,7 +33,7 @@ Use this skill only inside `agent-taskstate`. Treat `docs/kv-priority-roadmap/` 
 - Keep `agent-taskstate` as the source of truth for internal task state. Treat tracker data as auxiliary input.
 - Preserve context bundle auditability: diagnostics, source refs, raw-inclusion flags, and generator metadata must remain traceable.
 - When asked for review, report bugs, requirement gaps, and regression risks before summaries.
-- When editing docs, keep `README.md` agent-oriented and `README.human.md` human-oriented.
+- When editing docs, keep `README.md` agent-oriented and `README-human.md` human-oriented.
 
 ## Acceptance Pass
 
