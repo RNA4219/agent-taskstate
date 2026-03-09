@@ -5,7 +5,6 @@ Corresponds to: docs/tests/decision.feature
 Spec reference: MVP Spec 5.3
 """
 
-import json
 
 import pytest
 

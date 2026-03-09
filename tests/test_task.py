@@ -5,7 +5,6 @@ Corresponds to: docs/tests/task.feature
 Spec reference: MVP Spec 5.1, 6.1-6.5, 7.1-7.4
 """
 
-import json
 
 import pytest
 

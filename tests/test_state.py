@@ -5,7 +5,6 @@ Corresponds to: docs/tests/state.feature
 Spec reference: MVP Spec 5.2, 12
 """
 
-import json
 
 import pytest
 

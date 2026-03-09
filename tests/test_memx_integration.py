@@ -4,7 +4,6 @@ Integration tests for typed_ref between agent-taskstate and memx-core.
 Tests cross-domain ref resolution scenarios.
 """
 
-import pytest
 from src.typed_ref import (
     parse_ref,
     format_ref,
@@ -12,12 +11,10 @@ from src.typed_ref import (
     canonicalize_ref,
     agent_taskstate_ref,
     memx_ref,
-    tracker_ref,
 )
 from src.resolver import (
     ContextRebuildResolver,
     AgentTaskstateLocalResolver,
-    ResolveStatus,
 )
 
 

@@ -14,17 +14,11 @@ import sqlite3
 import pytest
 
 from src.tracker_bridge import (
-    EntityLink,
-    IssueCache,
-    IssueSnapshot,
     LinkRole,
     MockTrackerAdapter,
     SyncDirection,
-    SyncEvent,
     SyncStatus,
-    SyncSuggestion,
     TrackerBridgeService,
-    TrackerConnection,
     create_tracker_tables,
 )
 

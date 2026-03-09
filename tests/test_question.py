@@ -5,7 +5,6 @@ Corresponds to: docs/tests/question.feature
 Spec reference: MVP Spec 5.4
 """
 
-import json
 
 import pytest
 

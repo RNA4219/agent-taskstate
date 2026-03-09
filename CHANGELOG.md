@@ -15,28 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-03-09
+
 ### Added
 
-- 0001: MVP仕様書 (`docs/src/agent-taskstate_mvp_spec.md`) 追加
-- 0002: 要件定義ペライチ (`docs/src/agent-taskstate_requirements_one_pager.md`) 追加
-- 0003: SQLite仕様書 (`docs/src/agent-taskstate_sqlite_spec.md`) 追加
-- 0004: CLI実装 (`docs/src/agent-taskstate_cli.py`) 追加
-- 0005: 開発フロー定義 (`RUNBOOK.md`) 追加
-- 0006: 受入基準 (`EVALUATION.md`) 追加
-- 0007: チェックリスト (`CHECKLISTS.md`) 追加
-- 0008: テスト設計 (`docs/tests/*.feature`) 追加
-  - `task.feature`: Task管理テストシナリオ
-  - `state.feature`: Task State管理テストシナリオ
-  - `decision.feature`: Decision管理テストシナリオ
-  - `question.feature`: Open Question管理テストシナリオ
-  - `run.feature`: Run記録テストシナリオ
-  - `context.feature`: Context Bundle管理テストシナリオ
-  - `export.feature`: Export機能テストシナリオ
-- 0009: プロジェクト概要 (`BLUEPRINT.md`) 追加
-- 0010: 行動指針 (`GUARDRAILS.md`) 追加
-- 0011: タスク分割ハブ (`HUB.codex.md`) 追加
-- 0012: タスクシードテンプレート (`TASK.codex.md`) 追加
-- 0013: プロジェクトREADME (`README.md`) 追加
+- repo 同梱 Codex skill `$agent-taskstate-maintainer` を追加
+- 人間向け README と Agent 向け README を分離し、`README-human.md` を追加
+- `docs/kv-priority-roadmap/` の agent-taskstate 命名を整理
+
+### Changed
+
+- Agent README を `tracker-bridge-materials` と同系統の軽量導線へ再構成
+- `context_bundle` の監査項目に合わせて schema / migration / README / skill 導線を更新
+- テストコードの未使用 import / 変数を整理し、`ruff check src tests` を通過させた
+
+### Fixed
+
+- `typed_ref` の validator と formatter を修正し、既知 domain の canonical 4 セグメント形式を厳格化
+- `context_bundle` の `selected_raw`、`metadata_json`、`diagnostics`、generator 監査情報の永続化漏れを修正
+- `tracker_bridge` の canonical ref 検証、snapshot sync result、outbound status 反映を修正
+- `pytest` の収集対象を調整し、未追跡の `workflow-cookbook/` が混ざらないようにした
 
 ## [0.1.0] - 2026-03-09
 

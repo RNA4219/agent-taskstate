@@ -7,15 +7,12 @@ Spec reference: RUNBOOK Section 2-5
 
 import json
 
-import pytest
 
 from .helpers import (
     agent_taskstate,
     create_task,
     create_task_state,
     create_decision,
-    create_open_question,
-    create_run,
     cmd_task_create,
     cmd_task_show,
     cmd_task_set_status,
@@ -120,6 +117,7 @@ class TestCompleteTaskLifecycle:
         output = cmd_question_add(ctx, task_id=task_id, question_json=question_data)
         assert output["ok"] is True
         question_id = output["data"]["id"]
+
 
         # Answer the question
         output = cmd_question_answer(
@@ -403,7 +401,7 @@ class TestContextBundleUsage:
             "priority": "high",
         }
         output = cmd_question_add(ctx, task_id=task_id, question_json=question_data)
-        question_id = output["data"]["id"]
+
 
         # Build context bundle
         output = cmd_context_build(ctx, task_id=task_id, build_reason="ambiguity")
@@ -557,3 +555,4 @@ class TestSubtaskCreation:
         from .helpers import cmd_task_list
         output = cmd_task_list(ctx)
         assert len(output["data"]) == 2
+

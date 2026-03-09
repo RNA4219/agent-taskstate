@@ -5,7 +5,6 @@ pytest fixtures for testing agent-taskstate CLI.
 """
 
 from pathlib import Path
-from typing import Generator
 
 import pytest
 

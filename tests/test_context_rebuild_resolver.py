@@ -17,7 +17,6 @@ from src.resolver import (
     ResolvedRef,
     ResolveReport,
     SummaryPayload,
-    RawPayload,
     ResolverDiagnostics,
     AgentTaskstateLocalResolver,
     RAW_DESCENT_CONDITIONS,

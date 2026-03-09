@@ -13,8 +13,6 @@ import sqlite3
 import pytest
 
 from src.context_bundle import (
-    ContextBundle,
-    BundleSource,
     ContextBundleService,
     create_bundle_tables,
     PURPOSE_TYPES,

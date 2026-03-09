@@ -9,11 +9,8 @@ Covers:
 
 import pytest
 import sqlite3
-import tempfile
-import os
 
 from src.state_transition import (
-    StateTransition,
     StateTransitionService,
     InvalidTransitionError,
     TerminalStateError,
@@ -23,7 +20,6 @@ from src.state_transition import (
     requires_reason,
     create_transition_table,
     ALLOWED_TRANSITIONS,
-    TERMINAL_STATES,
 )
 
 

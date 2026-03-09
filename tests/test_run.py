@@ -5,7 +5,6 @@ Corresponds to: docs/tests/run.feature
 Spec reference: MVP Spec 5.5
 """
 
-import json
 
 import pytest
 
