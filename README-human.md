@@ -188,4 +188,4 @@ Codex などの Agent は [skills/agent-taskstate-maintainer/SKILL.md](skills/ag
 
 ## ライセンス
 
-Apache-2.0
+MIT
