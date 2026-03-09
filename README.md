@@ -1,147 +1,65 @@
 # agent-taskstate
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+| 読者 | 入口 |
+| --- | --- |
+| 人間 | [README.human.md](README.human.md) |
+| Agent / automation | この README を継続して読む |
 
-**Agent-First Task State Management Tool**
+## Agent Snapshot
 
-長期タスクの進行状態を構造化して保持し、エージェントまたは人間が毎回必要な文脈を再構成して次の一手を出せるようにするためのツール。
+| 項目 | 内容 |
+| --- | --- |
+| 目的 | 長期タスクの current state / history / decision / question / context bundle を明示的に保持し、チャット履歴なしで再開可能にする |
+| 正本 | SQLite 上の構造化状態。会話履歴は正本にしない |
+| 主要契約 | `typed_ref` は `<domain>:<entity_type>:<provider>:<entity_id>` の 4 セグメント canonical |
+| 主な利用者 | LLM エージェント、CLI 利用の開発者、検収担当 |
+| 主な検証コマンド | `pytest -q` |
+| 人間向け概要 | [README.human.md](README.human.md) |
 
-<!-- LLM-BOOTSTRAP v1 -->
-読む順番:
+## Read Order
 
-1. BLUEPRINT.md …… 要件・制約・背景
-2. docs/src/agent-taskstate_mvp_spec.md …… MVP仕様書
-3. GUARDRAILS.md …… 行動指針・開発原則
+| 優先度 | ファイル | 用途 |
+| --- | --- | --- |
+| 1 | [BLUEPRINT.md](BLUEPRINT.md) | 目的・制約・背景 |
+| 2 | [GUARDRAILS.md](GUARDRAILS.md) | 実装原則・禁止事項 |
+| 3 | [docs/src/agent-taskstate_mvp_spec.md](docs/src/agent-taskstate_mvp_spec.md) | MVP の振る舞い仕様 |
+| 4 | [docs/src/agent-taskstate_sqlite_spec.md](docs/src/agent-taskstate_sqlite_spec.md) | DB/永続化契約 |
+| 5 | [docs/contracts/typed-ref.md](docs/contracts/typed-ref.md) | repo 横断参照契約 |
+| 6 | [docs/kv-priority-roadmap/プライオリティ.md](docs/kv-priority-roadmap/プライオリティ.md) | 実装優先順 |
 
-フォーカス手順:
+## Task Map
 
-- 目的に応じて上記ドキュメントを選択
-- テストシナリオは `docs/tests/*.feature` を参照
-<!-- /LLM-BOOTSTRAP -->
+| 作業目的 | 最初に見るもの | 次に見るもの | 触る場所 |
+| --- | --- | --- | --- |
+| typed_ref の確認 | [docs/contracts/typed-ref.md](docs/contracts/typed-ref.md) | [src/typed_ref.py](src/typed_ref.py) | `src/typed_ref.py`, `tests/test_typed_ref.py` |
+| bundle 監査の確認 | [docs/kv-priority-roadmap/02-workx-state-history-and-bundle-audit.md](docs/kv-priority-roadmap/02-workx-state-history-and-bundle-audit.md) | [src/context_bundle.py](src/context_bundle.py) | `src/context_bundle.py`, `tests/test_context_bundle.py` |
+| resolver の確認 | [docs/kv-priority-roadmap/03-workx-memx-context-rebuild-resolver.md](docs/kv-priority-roadmap/03-workx-memx-context-rebuild-resolver.md) | [src/resolver.py](src/resolver.py) | `src/resolver.py`, `tests/test_context_rebuild_resolver.py` |
+| tracker 連携の確認 | [docs/kv-priority-roadmap/04-tracker-bridge-minimum-integration.md](docs/kv-priority-roadmap/04-tracker-bridge-minimum-integration.md) | [src/tracker_bridge.py](src/tracker_bridge.py) | `src/tracker_bridge.py`, `tests/test_tracker_bridge.py` |
+| 受入確認 | [EVALUATION.md](EVALUATION.md) | [CHECKLISTS.md](CHECKLISTS.md) | `tests/`, `docs/tests/*.feature` |
 
-## 概要
+## Runtime Surface
 
-agent-taskstate は、チャット履歴や KV キャッシュに依存せず、タスクの進行状態を構造化データとして保持するローカル状態管理ツール。
+| 種別 | エントリ |
+| --- | --- |
+| コア実装 | `src/typed_ref.py`, `src/context_bundle.py`, `src/resolver.py`, `src/tracker_bridge.py`, `src/state_transition.py` |
+| テスト | `tests/` |
+| schema | `docs/schema/agent-taskstate.sql`, `docs/migrations/001_init.sql` |
+| 参考実装 | `docs/src/agent-taskstate_cli.py` |
 
-**目的**: 会話を覚えさせるのではなく、Task / State / Decision / Question / ContextBundle を明示的に持たせることで、長い仕事を再構成可能にする。
+## Verification
 
-## 特徴
+| 目的 | コマンド |
+| --- | --- |
+| 全テスト | `pytest -q` |
+| typed_ref 周辺 | `pytest -q tests/test_typed_ref.py` |
+| bundle 周辺 | `pytest -q tests/test_context_bundle.py tests/test_context_rebuild_resolver.py` |
+| tracker 周辺 | `pytest -q tests/test_tracker_bridge.py` |
 
-- **Agent-First**: 機械が叩きやすい安定した JSON 入出力
-- **Chat-History-Free**: チャット履歴ではなく状態で進行
-- **Append-Oriented**: 履歴を残す設計
-- **Local-First**: SQLite ベース、オフライン動作可能
-- **Loose Coupling**: typed_ref による疎結合連携
+## Output Expectations
 
-## クイックスタート
-
-```bash
-# Task 作成
-agent-taskstate task create --kind feature --title "新機能" --goal "実装する" \
-  --priority high --owner-type agent --owner-id agent-001
-
-# State 設定
-agent-taskstate state put --task <task_id> --file state.json
-
-# Context Bundle 生成
-agent-taskstate context build --task <task_id> --reason normal
-
-# Export
-agent-taskstate export task --task <task_id> --output export.json
-```
-
-## ドキュメント
-
-| ドキュメント | 説明 |
-|-------------|------|
-| [BLUEPRINT.md](BLUEPRINT.md) | プロジェクト概要・要件・制約 |
-| [GUARDRAILS.md](GUARDRAILS.md) | 行動指針・開発原則 |
-| [RUNBOOK.md](RUNBOOK.md) | SDD+TDD開発フロー |
-| [EVALUATION.md](EVALUATION.md) | 受入基準・評価観点 |
-| [CHECKLISTS.md](CHECKLISTS.md) | リリース・レビューチェックリスト |
-| [HUB.codex.md](HUB.codex.md) | タスク分割ハブ |
-| [CHANGELOG.md](CHANGELOG.md) | 変更履歴 |
-
-### 仕様書
-
-| ドキュメント | 説明 |
-|-------------|------|
-| [docs/src/agent-taskstate_mvp_spec.md](docs/src/agent-taskstate_mvp_spec.md) | MVP仕様書 |
-| [docs/src/agent-taskstate_requirements_one_pager.md](docs/src/agent-taskstate_requirements_one_pager.md) | 要件定義ペライチ |
-| [docs/src/agent-taskstate_sqlite_spec.md](docs/src/agent-taskstate_sqlite_spec.md) | SQLiteスキーマ仕様 |
-
-### テスト設計
-
-| ドキュメント | 説明 |
-|-------------|------|
-| [docs/tests/task.feature](docs/tests/task.feature) | Task管理テストシナリオ |
-| [docs/tests/state.feature](docs/tests/state.feature) | Task State管理テストシナリオ |
-| [docs/tests/decision.feature](docs/tests/decision.feature) | Decision管理テストシナリオ |
-| [docs/tests/question.feature](docs/tests/question.feature) | Open Question管理テストシナリオ |
-| [docs/tests/run.feature](docs/tests/run.feature) | Run記録テストシナリオ |
-| [docs/tests/context.feature](docs/tests/context.feature) | Context Bundle管理テストシナリオ |
-| [docs/tests/export.feature](docs/tests/export.feature) | Export機能テストシナリオ |
-
-## コアエンティティ
-
-```
-Task (到達目標)
-├── Task State (現在状態ダッシュボード)
-├── Decision[] (意思決定ログ)
-├── Open Question[] (未解決論点)
-├── Run[] (実行記録)
-└── Context Bundle[] (状態再構成用入力束)
-```
-
-## 状態遷移
-
-```
-draft → ready → in_progress → review → done → archived
-                    ↓
-                blocked
-```
-
-## CLI コマンド
-
-```bash
-# Task 管理
-agent-taskstate task create/show/list/update/set-status
-
-# Task State 管理
-agent-taskstate state get/put/patch
-
-# Decision 管理
-agent-taskstate decision add/list/accept/reject
-
-# Open Question 管理
-agent-taskstate question add/list/answer/defer
-
-# Run 記録
-agent-taskstate run start/finish
-
-# Context Bundle 管理
-agent-taskstate context build/show
-
-# Export
-agent-taskstate export task
-```
-
-## 開発
-
-```bash
-# テスト実行
-pytest tests/ -v
-
-# Lint
-ruff check src/ tests/
-
-# Format
-black src/ tests/
-
-# Type check
-mypy src/
-```
-
-## ライセンス
-
-MIT License
+| 項目 | 期待値 |
+| --- | --- |
+| 実装変更 | 仕様差分がある場合は対応テストも更新 |
+| レビュー報告 | バグ・未達・回帰リスクを先に列挙 |
+| 完了条件 | テスト通過、必要なら schema/doc 更新、コミット作成 |
+| 人間の案内先 | [README.human.md](README.human.md) |
