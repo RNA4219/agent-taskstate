@@ -197,7 +197,6 @@ class TestRunFinish:
 class TestRunList:
     """Test run list command."""
 
-    @pytest.mark.skip(reason="CLI doesn't implement cmd_run_list")
     def test_list_runs(self, empty_db):
         """List all runs for a task."""
         ctx = agent_taskstate.AppContext(db_path=empty_db)
@@ -212,7 +211,6 @@ class TestRunList:
         assert output["ok"] is True
         assert len(output["data"]) == 2
 
-    @pytest.mark.skip(reason="CLI doesn't implement cmd_run_list")
     def test_list_runs_filter_by_status(self, empty_db):
         """Filter runs by status."""
         ctx = agent_taskstate.AppContext(db_path=empty_db)

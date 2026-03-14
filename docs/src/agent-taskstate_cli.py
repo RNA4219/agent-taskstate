@@ -1038,6 +1038,20 @@ def cmd_run_finish(ctx: AppContext, args: argparse.Namespace) -> int:
     return json_ok(row_to_run(row))
 
 
+def cmd_run_list(ctx: AppContext, args: argparse.Namespace) -> int:
+    sql = "SELECT * FROM runs WHERE task_id = ?"
+    params: List[Any] = [args.task]
+    if args.status:
+        sql += " AND status = ?"
+        params.append(args.status)
+    sql += " ORDER BY created_at DESC"
+    with connect(ctx.db_path) as conn:
+        init_db(conn)
+        get_task(conn, args.task)
+        rows = conn.execute(sql, params).fetchall()
+    return json_ok([row_to_run(r) for r in rows])
+
+
 # ---------- context ----------
 
 
@@ -1160,6 +1174,7 @@ def cmd_export_task(ctx: AppContext, args: argparse.Namespace) -> int:
         "context_bundles": bundles,
         "exported_at": now_utc(),
     }
+    ensure_parent_dir(args.output)
     Path(args.output).write_text(json.dumps(export, ensure_ascii=False, indent=2), encoding="utf-8")
     return json_ok({"task": args.task, "output": args.output})
 
@@ -1295,6 +1310,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_run_start.add_argument("--actor-id")
     p_run_start.add_argument("--input-ref")
     p_run_start.set_defaults(func=cmd_run_start)
+
+    p_run_list = sp_run.add_parser("list")
+    p_run_list.add_argument("--task", required=True)
+    p_run_list.add_argument("--status")
+    p_run_list.set_defaults(func=cmd_run_list)
 
     p_run_finish = sp_run.add_parser("finish")
     p_run_finish.add_argument("--run", required=True)

@@ -412,9 +412,8 @@ def cmd_run_finish(ctx, run_id, status, output_ref=None) -> Dict:
 
 def cmd_run_list(ctx, task_id, status=None) -> Dict:
     """Wrapper for run list command."""
-    # Note: CLI doesn't have cmd_run_list, this is a placeholder
-    # Tests using this should be skipped or the CLI needs to implement this
-    raise NotImplementedError("cmd_run_list is not implemented in the CLI")
+    args = make_args(task=task_id, status=status)
+    return capture_output(agent_taskstate.cmd_run_list, ctx, args)
 
 
 def cmd_context_build(ctx, task_id, build_reason) -> Dict:

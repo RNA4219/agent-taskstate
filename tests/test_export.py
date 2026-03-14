@@ -141,7 +141,6 @@ class TestExportFileOutput:
         assert "old" not in export_data
         assert "task" in export_data
 
-    @pytest.mark.skip(reason="CLI doesn't create parent directories for export")
     def test_export_creates_directory(self, empty_db, tmp_path):
         """Export creates directory if it doesn't exist."""
         ctx = agent_taskstate.AppContext(db_path=empty_db)
