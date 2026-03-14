@@ -134,6 +134,27 @@ CREATE INDEX idx_task_priority ON task(priority);
 CREATE INDEX idx_task_updated_at ON task(updated_at);
 ```
 
+### 7.1.1 Phase 2 orchestration metadata 拡張
+`pulse-kestra` の Phase 2 回復導線に対応するため、`task` には以下の追加属性を持たせてよい。
+
+- `idempotency_key`
+- `note_id`
+- `trace_id`
+- `reply_target`
+- `reply_state`
+- `retry_count`
+- `kestra_execution_id`
+- `original_task_id`
+- `trigger`
+- `reply_text`
+- `roadmap_request_json`
+
+#### 運用ルール
+- `retry_count` は `INTEGER NOT NULL DEFAULT 0` とする
+- `reply_state` は `pending` / `sent` / `failed` / `skipped` を許容する
+- `idempotency_key` と `trace_id` は replay / dedupe の検索キーとしてインデックス対象にする
+- `reply_text` は notifier resend と notifier-only replay の正本として使う
+
 ---
 
 ## 7.2 task_state

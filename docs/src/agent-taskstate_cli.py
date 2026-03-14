@@ -51,6 +51,21 @@ RUN_TYPES = {"plan", "execute", "review", "summarize", "sync", "manual"}
 RUN_STATUSES = {"running", "succeeded", "failed", "cancelled"}
 BUILD_REASONS = {"normal", "ambiguity", "review", "high_risk", "recovery"}
 CONFIDENCE_LEVELS = {"low", "medium", "high", None}
+REPLY_STATES = {"pending", "sent", "failed", "skipped"}
+
+TASK_PHASE2_COLUMNS = {
+    "idempotency_key": "TEXT",
+    "note_id": "TEXT",
+    "trace_id": "TEXT",
+    "reply_target": "TEXT",
+    "reply_state": "TEXT",
+    "retry_count": "INTEGER NOT NULL DEFAULT 0",
+    "kestra_execution_id": "TEXT",
+    "original_task_id": "TEXT",
+    "trigger": "TEXT",
+    "reply_text": "TEXT",
+    "roadmap_request_json": "TEXT",
+}
 
 EXPECTED_OUTPUT_SCHEMA = {
     "summary": "string",
@@ -186,6 +201,17 @@ CREATE TABLE IF NOT EXISTS tasks (
   priority TEXT NOT NULL,
   owner_type TEXT NOT NULL,
   owner_id TEXT,
+  idempotency_key TEXT,
+  note_id TEXT,
+  trace_id TEXT,
+  reply_target TEXT,
+  reply_state TEXT,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  kestra_execution_id TEXT,
+  original_task_id TEXT,
+  trigger TEXT,
+  reply_text TEXT,
+  roadmap_request_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY(parent_task_id) REFERENCES tasks(id)
@@ -277,8 +303,27 @@ CREATE INDEX IF NOT EXISTS idx_context_bundles_task ON context_bundles(task_id);
 """
 
 
+def _task_column_names(conn: sqlite3.Connection) -> set[str]:
+    rows = conn.execute("PRAGMA table_info(tasks)").fetchall()
+    return {row["name"] for row in rows}
+
+
+def _ensure_task_phase2_columns(conn: sqlite3.Connection) -> None:
+    columns = _task_column_names(conn)
+    for name, ddl in TASK_PHASE2_COLUMNS.items():
+        if name not in columns:
+            conn.execute(f"ALTER TABLE tasks ADD COLUMN {name} {ddl}")
+    conn.execute("UPDATE tasks SET retry_count = 0 WHERE retry_count IS NULL")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_updated_at ON tasks(updated_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_idempotency_key ON tasks(idempotency_key)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_trace_id ON tasks(trace_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_reply_state ON tasks(reply_state)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_original_task_id ON tasks(original_task_id)")
+
+
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA_SQL)
+    _ensure_task_phase2_columns(conn)
 
 
 # ---------- row conversion ----------
@@ -385,14 +430,26 @@ def get_bundle(conn: sqlite3.Connection, bundle_id: str) -> sqlite3.Row:
 # ---------- validation ----------
 
 
+def _normalize_optional_json_text(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return jdump(value)
+
+
 def validate_task_payload(data: Dict[str, Any]) -> None:
     require_in(data["kind"], TASK_KINDS, "kind")
     require_in(data.get("status", "draft"), TASK_STATUSES, "status")
     require_in(data.get("priority", "medium"), TASK_PRIORITIES, "priority")
     require_in(data.get("owner_type", "human"), OWNER_TYPES, "owner_type")
-    if data.get("parent_task_id"):
-        if not isinstance(data["parent_task_id"], str):
-            raise AgentTaskstateError("parent_task_id must be string")
+    if data.get("parent_task_id") and not isinstance(data["parent_task_id"], str):
+        raise AgentTaskstateError("parent_task_id must be string")
+    if data.get("reply_state") is not None:
+        require_in(data["reply_state"], REPLY_STATES, "reply_state")
+    if data.get("retry_count") is not None:
+        if not isinstance(data["retry_count"], int) or data["retry_count"] < 0:
+            raise AgentTaskstateError("retry_count must be non-negative integer")
 
 
 def validate_state_payload(data: Dict[str, Any]) -> None:
@@ -518,14 +575,20 @@ def cmd_task_create(ctx: AppContext, args: argparse.Namespace) -> int:
     validate_task_payload(payload)
     task_id = payload.get("id") or gen_id()
     now = now_utc()
+    roadmap_request_json = _normalize_optional_json_text(payload.get("roadmap_request_json"))
     with connect(ctx.db_path) as conn:
         init_db(conn)
         if payload.get("parent_task_id"):
             get_task(conn, payload["parent_task_id"])
         conn.execute(
             """
-            INSERT INTO tasks (id, parent_task_id, kind, title, goal, status, priority, owner_type, owner_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO tasks (
+                id, parent_task_id, kind, title, goal, status, priority, owner_type, owner_id,
+                idempotency_key, note_id, trace_id, reply_target, reply_state, retry_count,
+                kestra_execution_id, original_task_id, trigger, reply_text, roadmap_request_json,
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task_id,
@@ -537,6 +600,17 @@ def cmd_task_create(ctx: AppContext, args: argparse.Namespace) -> int:
                 payload.get("priority", "medium"),
                 payload.get("owner_type", "human"),
                 payload.get("owner_id"),
+                payload.get("idempotency_key"),
+                payload.get("note_id"),
+                payload.get("trace_id"),
+                payload.get("reply_target"),
+                payload.get("reply_state"),
+                payload.get("retry_count", 0),
+                payload.get("kestra_execution_id"),
+                payload.get("original_task_id"),
+                payload.get("trigger"),
+                payload.get("reply_text"),
+                roadmap_request_json,
                 now,
                 now,
             ),
@@ -575,9 +649,22 @@ def cmd_task_list(ctx: AppContext, args: argparse.Namespace) -> int:
     if args.priority:
         clauses.append("priority = ?")
         params.append(args.priority)
+    if getattr(args, "updated_before", None):
+        clauses.append("updated_at < ?")
+        params.append(args.updated_before)
+    if getattr(args, "idempotency_key", None):
+        clauses.append("idempotency_key = ?")
+        params.append(args.idempotency_key)
+    if getattr(args, "reply_state", None):
+        clauses.append("reply_state = ?")
+        params.append(args.reply_state)
+    if getattr(args, "trace_id", None):
+        clauses.append("trace_id = ?")
+        params.append(args.trace_id)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT * FROM tasks {where} ORDER BY updated_at DESC, created_at DESC"
     with connect(ctx.db_path) as conn:
+        init_db(conn)
         rows = conn.execute(sql, params).fetchall()
     data = [{**row_to_task(r), "ref": typed_ref("agent-taskstate", "task", r["id"])} for r in rows]
     return json_ok(data)
@@ -585,7 +672,11 @@ def cmd_task_list(ctx: AppContext, args: argparse.Namespace) -> int:
 
 def cmd_task_update(ctx: AppContext, args: argparse.Namespace) -> int:
     payload = load_json_arg(args.json, args.file)
-    allowed = {"parent_task_id", "kind", "title", "goal", "priority", "owner_type", "owner_id"}
+    allowed = {
+        "parent_task_id", "kind", "title", "goal", "priority", "owner_type", "owner_id",
+        "idempotency_key", "note_id", "trace_id", "reply_target", "reply_state", "retry_count",
+        "kestra_execution_id", "original_task_id", "trigger", "reply_text", "roadmap_request_json",
+    }
     updates = {k: v for k, v in payload.items() if k in allowed}
     if not updates:
         raise AgentTaskstateError("no updatable fields provided")
@@ -595,6 +686,13 @@ def cmd_task_update(ctx: AppContext, args: argparse.Namespace) -> int:
         require_in(updates["priority"], TASK_PRIORITIES, "priority")
     if "owner_type" in updates:
         require_in(updates["owner_type"], OWNER_TYPES, "owner_type")
+    if "reply_state" in updates and updates["reply_state"] is not None:
+        require_in(updates["reply_state"], REPLY_STATES, "reply_state")
+    if "retry_count" in updates:
+        if not isinstance(updates["retry_count"], int) or updates["retry_count"] < 0:
+            raise AgentTaskstateError("retry_count must be non-negative integer")
+    if "roadmap_request_json" in updates:
+        updates["roadmap_request_json"] = _normalize_optional_json_text(updates["roadmap_request_json"])
     with connect(ctx.db_path) as conn:
         init_db(conn)
         get_task(conn, args.task)
@@ -1097,6 +1195,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_task_list.add_argument("--owner-type")
     p_task_list.add_argument("--owner-id")
     p_task_list.add_argument("--priority")
+    p_task_list.add_argument("--updated-before")
+    p_task_list.add_argument("--idempotency-key")
+    p_task_list.add_argument("--reply-state")
+    p_task_list.add_argument("--trace-id")
     p_task_list.set_defaults(func=cmd_task_list)
 
     p_task_update = sp_task.add_parser("update", help="update task")

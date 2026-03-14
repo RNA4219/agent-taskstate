@@ -19,6 +19,17 @@ CREATE TABLE task (
     owner_id              TEXT,
     parent_task_id        TEXT,
     tracker_issue_ref     TEXT,
+    idempotency_key       TEXT,
+    note_id               TEXT,
+    trace_id              TEXT,
+    reply_target          TEXT,
+    reply_state           TEXT,
+    retry_count           INTEGER NOT NULL DEFAULT 0,
+    kestra_execution_id   TEXT,
+    original_task_id      TEXT,
+    trigger               TEXT,
+    reply_text            TEXT,
+    roadmap_request_json  TEXT,
     created_at            TEXT NOT NULL,
     updated_at            TEXT NOT NULL,
     archived_at           TEXT,
@@ -145,6 +156,11 @@ CREATE INDEX idx_task_status ON task(status);
 CREATE INDEX idx_task_owner ON task(owner_type, owner_id);
 CREATE INDEX idx_task_parent ON task(parent_task_id);
 CREATE INDEX idx_task_tracker_issue_ref ON task(tracker_issue_ref);
+CREATE INDEX idx_task_idempotency_key ON task(idempotency_key);
+CREATE INDEX idx_task_trace_id ON task(trace_id);
+CREATE INDEX idx_task_reply_state ON task(reply_state);
+CREATE INDEX idx_task_updated_at ON task(updated_at);
+CREATE INDEX idx_task_original_task_id ON task(original_task_id);
 
 CREATE INDEX idx_task_state_task_changed ON task_state(task_id, changed_at DESC);
 CREATE INDEX idx_task_state_task_to_state ON task_state(task_id, to_state);

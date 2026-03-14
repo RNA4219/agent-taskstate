@@ -60,6 +60,17 @@ def create_task(
     owner_type: str = "agent",
     owner_id: str = "agent-001",
     parent_task_id: str = None,
+    idempotency_key: str = None,
+    note_id: str = None,
+    trace_id: str = None,
+    reply_target: str = None,
+    reply_state: str = None,
+    retry_count: int = 0,
+    kestra_execution_id: str = None,
+    original_task_id: str = None,
+    trigger: str = None,
+    reply_text: str = None,
+    roadmap_request_json: str = None,
 ) -> str:
     """Create a task directly in the database."""
     if task_id is None:
@@ -67,10 +78,20 @@ def create_task(
     now = agent_taskstate.now_utc()
     conn.execute(
         """
-        INSERT INTO tasks (id, parent_task_id, kind, title, goal, status, priority, owner_type, owner_id, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tasks (
+            id, parent_task_id, kind, title, goal, status, priority, owner_type, owner_id,
+            idempotency_key, note_id, trace_id, reply_target, reply_state, retry_count,
+            kestra_execution_id, original_task_id, trigger, reply_text, roadmap_request_json,
+            created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (task_id, parent_task_id, kind, title, goal, status, priority, owner_type, owner_id, now, now),
+        (
+            task_id, parent_task_id, kind, title, goal, status, priority, owner_type, owner_id,
+            idempotency_key, note_id, trace_id, reply_target, reply_state, retry_count,
+            kestra_execution_id, original_task_id, trigger, reply_text, roadmap_request_json,
+            now, now,
+        ),
     )
     return task_id
 
@@ -250,7 +271,7 @@ def create_context_bundle(
 # CLI Command Wrappers
 # ============================================
 
-def cmd_task_create(ctx, kind, title, goal, priority, owner_type, owner_id, parent_task_id=None) -> Dict:
+def cmd_task_create(ctx, kind, title, goal, priority, owner_type, owner_id, parent_task_id=None, **extra_fields) -> Dict:
     """Wrapper for task create command."""
     payload = {
         "kind": kind,
@@ -262,7 +283,8 @@ def cmd_task_create(ctx, kind, title, goal, priority, owner_type, owner_id, pare
     }
     if parent_task_id:
         payload["parent_task_id"] = parent_task_id
-    args = make_args(json=json.dumps(payload), file=None)
+    payload.update(extra_fields)
+    args = make_args(json=json.dumps(payload, ensure_ascii=False), file=None)
     return capture_output(agent_taskstate.cmd_task_create, ctx, args)
 
 
@@ -272,13 +294,23 @@ def cmd_task_show(ctx, task_id) -> Dict:
     return capture_output(agent_taskstate.cmd_task_show, ctx, args)
 
 
-def cmd_task_list(ctx, status=None, kind=None, owner_type=None, owner_id=None) -> Dict:
+def cmd_task_list(ctx, status=None, kind=None, owner_type=None, owner_id=None, priority=None, updated_before=None, idempotency_key=None, reply_state=None, trace_id=None) -> Dict:
     """Wrapper for task list command."""
-    args = make_args(status=status, kind=kind, owner_type=owner_type, owner_id=owner_id, priority=None)
+    args = make_args(
+        status=status,
+        kind=kind,
+        owner_type=owner_type,
+        owner_id=owner_id,
+        priority=priority,
+        updated_before=updated_before,
+        idempotency_key=idempotency_key,
+        reply_state=reply_state,
+        trace_id=trace_id,
+    )
     return capture_output(agent_taskstate.cmd_task_list, ctx, args)
 
 
-def cmd_task_update(ctx, task_id, title=None, goal=None, priority=None) -> Dict:
+def cmd_task_update(ctx, task_id, title=None, goal=None, priority=None, **extra_fields) -> Dict:
     """Wrapper for task update command."""
     payload = {}
     if title is not None:
@@ -287,7 +319,8 @@ def cmd_task_update(ctx, task_id, title=None, goal=None, priority=None) -> Dict:
         payload["goal"] = goal
     if priority is not None:
         payload["priority"] = priority
-    args = make_args(task=task_id, json=json.dumps(payload), file=None)
+    payload.update(extra_fields)
+    args = make_args(task=task_id, json=json.dumps(payload, ensure_ascii=False), file=None)
     return capture_output(agent_taskstate.cmd_task_update, ctx, args)
 
 

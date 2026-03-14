@@ -17,7 +17,7 @@
 | 3 | `docs/kv-priority-roadmap/` |
 
 必要になった時だけ参照:
-`GUARDRAILS.md` / `docs/src/agent-taskstate_mvp_spec.md` / `docs/src/agent-taskstate_sqlite_spec.md` / `docs/contracts/typed-ref.md` / `README-human.md`
+`GUARDRAILS.md` / `docs/src/agent-taskstate_mvp_spec.md` / `docs/src/agent-taskstate_sqlite_spec.md` / `docs/src/agent-taskstate_phase2_pulse_kestra_spec.md` / `docs/contracts/typed-ref.md` / `README-human.md`
 
 ## 実施ルール
 
@@ -42,5 +42,6 @@ pytest -q
 - `CHECKLISTS.md`
 - `docs/src/agent-taskstate_mvp_spec.md`
 - `docs/src/agent-taskstate_sqlite_spec.md`
+- `docs/src/agent-taskstate_phase2_pulse_kestra_spec.md`
 - `docs/schema/agent-taskstate.sql`
 - `docs/contracts/typed-ref.md`
