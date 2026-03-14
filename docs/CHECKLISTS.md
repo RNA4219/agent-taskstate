@@ -1,327 +1,413 @@
----
-intent_id: INT-001
-owner: your-handle
-status: active   # draft|active|deprecated
-last_reviewed_at: 2026-03-07
-next_review_due: 2026-04-07
----
+# agent-taskstate Checklists
 
-# Checklists: agent-taskstate CLI MVP
-
-agent-taskstate CLI MVP の開発・運用におけるチェックリスト集。
+本ドキュメントは agent-taskstate MVP のリリースおよびレビューに関するチェックリストを定義する。
 
 ---
 
-## Development
+## 1. Pre-Commit Checklist
 
-### Task 作成・設計
+コミット前に実施すること。
 
-- [ ] Task 作成前に `goal` と `done_when` を明確化
-- [ ] `kind` を適切に設定（`bugfix` / `feature` / `research`）
-- [ ] `priority` を業務重要度に合わせて設定
-- [ ] 親 Task がある場合は `parent_task_id` を設定
-- [ ] Subtask 化条件を確認：
-  - [ ] 完了条件が 3 個以下か
-  - [ ] 担当主体が単一か
-  - [ ] open question が 5 件以下か
+### 1.1 Code Quality
 
-### Task State 設計
+- [ ] `pytest tests/ -v` が全て通過している
+- [ ] `ruff check src/ tests/` でエラーがない
+- [ ] `black --check src/ tests/` でフォーマット違反がない
+- [ ] `mypy src/` で型エラーがない（任意）
 
-- [ ] `current_step` が明確か
-- [ ] `constraints` に技術的制約を列挙
-- [ ] `done_when` に完了条件を具体的に記述
-- [ ] `confidence` を誠実に評価（low/medium/high）
+### 1.2 Documentation
 
-### 状態遷移確認
+- [ ] 変更内容が MVP Spec に反映されている（必要な場合）
+- [ ] CLI --help が更新されている（コマンド追加/変更時）
+- [ ] 破壊的変更がある場合、移行ガイドを記載
 
-- [ ] `draft -> ready` の前提条件：
-  - [ ] goal が空でない
-  - [ ] done_when が 1 件以上ある
-  - [ ] kind が設定済み
-- [ ] `ready -> in_progress` の前提条件：
-  - [ ] task_state が存在する
-  - [ ] current_step が空でない
-- [ ] `in_progress -> review` の前提条件：
-  - [ ] high priority の open question が 0 件
-  - [ ] accepted または proposed の decision が 1 件以上
-- [ ] `review -> done` の前提条件：
-  - [ ] done_when がすべて満たされている
-  - [ ] current_summary がある
-  - [ ] review を 1 回以上通過している
+### 1.3 Commit Message
 
-### Decision 記録
-
-- [ ] `summary` が簡潔かつ明確
-- [ ] `rationale` で判断根拠を説明
-- [ ] `confidence` を評価
-- [ ] `evidence_refs` に根拠資料をリンク
-- [ ] 古い Decision を置き換える場合は `supersedes_decision_id` を設定
-
-### Open Question 管理
-
-- [ ] 未解決論点を隠さず明示
-- [ ] `priority` を適切に設定（特に `high` は review 遷移をブロック）
-- [ ] 解決したら速やかに `answer` で回答記録
-- [ ] 延期する場合は `defer` で理由を明記
+- [ ] プレフィックスが適切（feat/fix/chore/docs/test/spec）
+- [ ] 変更内容が1行で理解できる
+- [ ] 関連 Issue や Spec セクションへの参照がある（任意）
 
 ---
 
-## Pull Request / Review
+## 2. Pull Request Checklist
 
-### PR 作成前
+PR 作成時に確認すること。
 
-- [ ] 関連 Task ID を PR 本文に記載
-- [ ] 変更内容を要約して説明
-- [ ] 影響範囲を特定
-- [ ] 破壊的変更の有無を確認
+### 2.1 Required
 
-### PR 本文テンプレート
+- [ ] テストが全て通過している
+- [ ] 新規コードにテストが追加されている
+- [ ] MVP Spec と実装が整合している
+- [ ] エラーコードが `EVALUATION.md` の定義通り
+
+### 2.2 Code Review
+
+- [ ] 仕様書への参照がコメントにある（`Spec 5.1` 等）
+- [ ] typed_ref 形式が正しく使用されている
+- [ ] JSON 出力形式 `{ok, data, error}` を守っている
+- [ ] 状態遷移ガードが仕様通り実装されている
+
+### 2.3 PR Description Template
 
 ```markdown
-## Intent
-- Task ID: agent-taskstate:task:01H...
-
 ## Summary
-- 変更内容の要約
+<!-- 変更内容を1-2文で -->
+
+## Related Spec
+<!-- 関連する仕様書セクション: Spec 5.1, SQLite Spec 7.2 等 -->
 
 ## Changes
-- 変更ファイル一覧
-- 主要な変更点
+- [ ] 変更点1
+- [ ] 変更点2
 
 ## Test Plan
-- [ ] 単体テスト
-- [ ] 結合テスト
-- [ ] 手動確認
+- [ ] 追加したテストケース
+- [ ] 手動確認項目
 
 ## Checklist
-- [ ] state revision が最新
-- [ ] decision で合意済み
-- [ ] open question が解決済み
-```
-
-### レビュー観点
-
-- [ ] 設計意図が Decision に記録されているか
-- [ ] 未解決の Open Question が残っていないか
-- [ ] Context Bundle で次の一手が判断できるか
-- [ ] typed_ref が正しい形式か
-
-### マージ前確認
-
-- [ ] CI が通っている
-- [ ] レビュアー承認済み
-- [ ] コンフリクト解消済み
-- [ ] CHANGELOG 更新（該当する場合）
-
----
-
-## Ops / Incident
-
-### インシデント初動対応
-
-- [ ] 影響範囲の特定
-- [ ] 関連 Task の特定
-- [ ] 状態を `blocked` に変更
-- [ ] Open Question で問題を明確化
-
-### 復旧作業
-
-- [ ] 原因特定のための Decision 記録
-- [ ] 修正方針の Decision 記録
-- [ ] Run で作業記録
-- [ ] 状態を `in_progress` に戻す
-
-### 事後対応
-
-- [ ] 再発防止策を Decision として記録
-- [ ] 再発防止 Task を作成（必要に応じて）
-- [ ] 状態を `review` -> `done` に遷移
-
----
-
-## Daily
-
-### 入力確認
-
-- [ ] 新規 Task の有無
-- [ ] blocked Task の有無
-- [ ] 優先度の高い Task の確認
-
-### 状態確認
-
-- [ ] `in_progress` が滞留していないか
-- [ ] `review` 待ちがないか
-- [ ] high priority の Open Question がないか
-
-### DB 整合性
-
-- [ ] `schema_version` が最新
-- [ ] 孤立した task_state がない
-- [ ] revision 不整合がない
-
----
-
-## Release
-
-### 事前確認
-
-- [ ] 全 Task の状態確認
-- [ ] 未解決 Open Question の確認
-- [ ] draft Task の保留理由確認
-
-### Task 完了確認
-
-- [ ] `done_when` 全項目が満たされている
-- [ ] `current_summary` が記載されている
-- [ ] review を通過している
-- [ ] 関連 Run が成功している
-
-### Export・バックアップ
-
-- [ ] 完了 Task の JSON Export
-- [ ] DB バックアップ作成
-- [ ] Export ファイルの整合性確認
-
-### リリース後
-
-- [ ] 完了 Task を `archived` に変更
-- [ ] CHANGELOG 更新
-- [ ] 関連資料の更新
-
----
-
-## Hygiene
-
-### 定期メンテナンス
-
-- [ ] 古い Task のアーカイブ確認
-- [ ] `superseded` Decision の整理
-- [ ] `deferred` Open Question の再評価
-
-### データ品質
-
-- [ ] typed_ref の有効性確認
-- [ ] JSON フィールドの整合性
-- [ ] タイムスタンプの妥当性
-
-### ドキュメント同期
-
-- [ ] MVP Spec との整合性
-- [ ] SQLite Spec との整合性
-- [ ] RUNBOOK の最新化
-
----
-
-## Command Quick Reference
-
-### Task
-
-```bash
-agent-taskstate task create --kind <bugfix|feature|research> --title TEXT --goal TEXT --priority <low|medium|high|critical> --owner-type <human|agent|system> --owner-id ID
-agent-taskstate task show --task ID
-agent-taskstate task list [--status STATUS] [--kind KIND]
-agent-taskstate task update --task ID [--title TEXT] [--goal TEXT] ...
-agent-taskstate task set-status --task ID --to STATUS [--reason TEXT]
-```
-
-### State
-
-```bash
-agent-taskstate state get --task ID
-agent-taskstate state put --task ID --file JSON
-agent-taskstate state patch --task ID --file JSON --expected-revision N
-```
-
-### Decision
-
-```bash
-agent-taskstate decision add --task ID --file JSON
-agent-taskstate decision list --task ID [--status STATUS]
-agent-taskstate decision accept --decision ID
-agent-taskstate decision reject --decision ID
-```
-
-### Question
-
-```bash
-agent-taskstate question add --task ID --file JSON
-agent-taskstate question list --task ID [--status STATUS] [--priority PRIORITY]
-agent-taskstate question answer --question ID --answer TEXT
-agent-taskstate question defer --question ID [--reason TEXT]
-```
-
-### Run
-
-```bash
-agent-taskstate run start --task ID --run-type <plan|execute|review|summarize|sync|manual> --actor-type <human|agent|system> --actor-id ID [--input-ref REF]
-agent-taskstate run finish --run ID --status <succeeded|failed|cancelled> [--output-ref REF]
-```
-
-### Context
-
-```bash
-agent-taskstate context build --task ID --reason <normal|ambiguity|review|high_risk|recovery>
-agent-taskstate context show --bundle ID
-```
-
-### Export
-
-```bash
-agent-taskstate export task --task ID --output FILE
+- [ ] テスト通過
+- [ ] Spec 整合
+- [ ] ドキュメント更新（必要な場合）
 ```
 
 ---
 
-## Status Flow Diagram
+## 3. Feature Completion Checklist
 
+各機能の完了判定用チェックリスト。
+
+### 3.1 Task Management
+
+#### task create
+
+- [ ] 必須フィールド指定で作成できる
+- [ ] 必須フィールド欠落で `validation_error`
+- [ ] 不正な kind で `validation_error`
+- [ ] 不正な priority で `validation_error`
+- [ ] 作成後の status が `draft`
+- [ ] 返却値が `{ok: true, data: {task_id: ...}}`
+
+#### task show
+
+- [ ] 存在する ID で詳細取得できる
+- [ ] 存在しない ID で `not_found`
+
+#### task list
+
+- [ ] 全件取得できる
+- [ ] --status でフィルタできる
+- [ ] --kind でフィルタできる
+- [ ] --owner-type でフィルタできる
+- [ ] --owner-id でフィルタできる
+
+#### task update
+
+- [ ] 各フィールドを更新できる
+- [ ] 存在しない ID で `not_found`
+- [ ] 不正な値で `validation_error`
+
+#### task set-status
+
+- [ ] 許可された遷移が成功する
+- [ ] 許可されていない遷移で `invalid_transition`
+- [ ] ガード条件違反で `invalid_transition`
+- [ ] 例外遷移で理由メモが必須
+
+### 3.2 Task State
+
+#### state get
+
+- [ ] 存在する task_id で取得できる
+- [ ] revision が含まれている
+- [ ] state 未作成の task で `not_found`
+
+#### state put
+
+- [ ] 新規作成できる（revision=1）
+- [ ] 既存を上書きできる（revision=1 にリセット）
+
+#### state patch
+
+- [ ] revision 一致で更新できる
+- [ ] revision 不一致で `conflict`
+- [ ] 存在しない task で `not_found`
+- [ ] 更新後の revision が +1 されている
+
+### 3.3 Decision
+
+#### decision add
+
+- [ ] 必須フィールドで作成できる
+- [ ] 作成時の status が `proposed`
+- [ ] 存在しない task_id で `not_found`
+
+#### decision list
+
+- [ ] task 配下の decision 一覧を取得
+- [ ] --status でフィルタできる
+
+#### decision accept
+
+- [ ] status が `accepted` になる
+- [ ] 存在しない ID で `not_found`
+- [ ] 既に `accepted` の場合は何もしない（冪等）
+
+#### decision reject
+
+- [ ] status が `rejected` になる
+- [ ] 存在しない ID で `not_found`
+
+### 3.4 Open Question
+
+#### question add
+
+- [ ] 必須フィールドで作成できる
+- [ ] 作成時の status が `open`
+- [ ] 存在しない task_id で `not_found`
+
+#### question list
+
+- [ ] task 配下の question 一覧を取得
+- [ ] --status でフィルタできる
+- [ ] --priority でフィルタできる
+
+#### question answer
+
+- [ ] answer が設定される
+- [ ] status が `answered` になる
+- [ ] 存在しない ID で `not_found`
+
+#### question defer
+
+- [ ] status が `deferred` になる
+- [ ] --reason が設定される（指定時）
+
+### 3.5 Run
+
+#### run start
+
+- [ ] 必須フィールドで作成できる
+- [ ] 作成時の status が `running`
+- [ ] started_at が設定される
+- [ ] run_id が返る
+
+#### run finish
+
+- [ ] status が更新される
+- [ ] ended_at が設定される
+- [ ] output_ref が設定される（指定時）
+- [ ] 存在しない run_id で `not_found`
+
+### 3.6 Context Bundle
+
+#### context build
+
+- [ ] build_reason 指定で作成できる
+- [ ] task 基本情報が含まれる
+- [ ] 最新 task_state が含まれる
+- [ ] accepted decisions が含まれる
+- [ ] open な open_questions が含まれる
+- [ ] evidence 含有条件が正しく動作する
+
+#### context show
+
+- [ ] bundle 詳細を取得できる
+- [ ] 存在しない ID で `not_found`
+
+### 3.7 Export
+
+#### export task
+
+- [ ] task が含まれる
+- [ ] task_state が含まれる
+- [ ] decisions[] が含まれる
+- [ ] open_questions[] が含まれる
+- [ ] runs[] が含まれる
+- [ ] context_bundles[] が含まれる
+- [ ] JSON ファイルが出力される
+
+---
+
+## 4. Release Checklist
+
+リリース判定時に確認すること。
+
+### 4.1 Quality Gate
+
+- [ ] 全テストケースが通過している
+- [ ] テストカバレッジが目標を達成している
+  - 正常系: 100%
+  - 異常系: 100%
+  - ガード条件: 100%
+  - 境界値: 80%以上
+- [ ] lint/type check がエラーなし
+- [ ] ドキュメントの lint がエラーなし
+
+### 4.2 Acceptance Criteria
+
+- [ ] AC-001: Task 作成が動作する
+- [ ] AC-002: Task 一覧が動作する
+- [ ] AC-003: Task 状態遷移が動作する
+- [ ] AC-004: Task State 取得が動作する
+- [ ] AC-005: Task State 更新が動作する
+- [ ] AC-006: Decision 追加が動作する
+- [ ] AC-007: Open Question 追加が動作する
+- [ ] AC-008: Run 記録が動作する
+- [ ] AC-009: Context Bundle 生成が動作する
+- [ ] AC-010: JSON Export が動作する
+
+### 4.3 Documentation
+
+- [ ] MVP Spec が最新状態
+- [ ] SQLite Spec が最新状態
+- [ ] CLI --help が全コマンド対応
+- [ ] CHANGELOG.md が更新されている
+- [ ] 破壊的変更がある場合はマイグレーションガイド記載
+
+### 4.4 Manual Verification
+
+- [ ] 新規インストールで初期化できる
+- [ ] 主要ワークフローを手動で実行できる
+  - task 作成 → state 設定 → decision 追加 → context build
+- [ ] エラーメッセージが理解可能
+- [ ] 性能が体感1秒未満
+
+### 4.5 Release Process
+
+1. [ ] バージョン番号を決定（セマンティックバージョニング）
+2. [ ] CHANGELOG.md にリリースノートを追加
+3. [ ] タグを作成（`git tag v0.1.0`）
+4. [ ] リリースコミットを作成
+5. [ ] リリースアナウンス（必要な場合）
+
+---
+
+## 5. Review Checklist
+
+コードレビュー時に確認すること。
+
+### 5.1 Specification Alignment
+
+- [ ] 実装が MVP Spec の定義通り
+- [ ] 属性名・型が Spec と一致
+- [ ] 状態遷移が Spec 7.2-7.4 と一致
+- [ ] エラーコードが Spec 10.4 と一致
+
+### 5.2 Design Principles
+
+- [ ] Agent-First: 機械可読な出力
+- [ ] Chat-History-Free: 状態で進行可能
+- [ ] Append-Oriented: 履歴が残る（該当箇所）
+- [ ] Loose Coupling: typed_ref で疎結合
+
+### 5.3 Code Quality
+
+- [ ] 関数が単一責務
+- [ ] 複雑度が適切（ネスト3以下推奨）
+- [ ] 重複コードがない
+- [ ] 適切なエラーハンドリング
+
+### 5.4 Test Quality
+
+- [ ] テストケースが仕様をカバー
+- [ ] アサーションが十分
+- [ ] テスト名が意図を表している
+- [ ] テスト間の依存がない
+
+### 5.5 Security
+
+- [ ] SQL インジェクション対策（パラメータ化クエリ）
+- [ ] パス操作の安全性
+- [ ] 機密情報のハードコードなし
+
+---
+
+## 6. Incident Response Checklist
+
+問題発生時の対応手順。
+
+### 6.1 Bug Report
+
+バグ報告時に確認すること：
+
+- [ ] 再現手順が明確
+- [ ] 期待動作が明確
+- [ ] 実際の動作が明確
+- [ ] 環境情報（OS, Python version）
+
+### 6.2 Bug Fix
+
+バグ修正時に確認すること：
+
+- [ ] 根本原因を特定
+- [ ] 修正用テストケースを追加
+- [ ] 修正が他に影響しないことを確認
+- [ ] CHANGELOG に記録
+
+### 6.3 Hotfix
+
+緊急修正時の手順：
+
+1. [ ] 影響範囲を最小限に特定
+2. [ ] 修正を実装
+3. [ ] 最小限のテストで確認
+4. [ ] リリース
+5. [ ] 事後レビューで根本対応を検討
+
+---
+
+## 7. Maintenance Checklist
+
+定期メンテナンス用。
+
+### 7.1 Weekly
+
+- [ ] テスト実行時間の確認
+- [ ] カバレッジ推移の確認
+- [ ] open issue/pr の確認
+
+### 7.2 Monthly
+
+- [ ] ドキュメントの陳腐化確認
+- [ ] 依存パッケージの更新確認
+- [ ] パフォーマンス劣化の確認
+
+### 7.3 Per Release
+
+- [ ] CHANGELOG 整理
+- [ ] 非推奨機能の削除検討
+- [ ] 将来バージョンの計画更新
+
+---
+
+## 8. Template: Change Log Entry
+
+CHANGELOG.md への追記フォーマット。
+
+```markdown
+## [Unreleased]
+
+### Added
+- 0001: 新機能の説明 [#issue] (author)
+
+### Changed
+- 0002: 変更内容の説明
+
+### Fixed
+- 0003: バグ修正の説明
+
+### Deprecated
+- 0004: 非推奨になった機能
 ```
-draft ─────────────────────────────────────────────┐
-  │                                                 │
-  ▼                                                 │
-ready ─────────────────────────────────────────────┤
-  │                                                 │
-  ▼                                                 │
-in_progress ◄──────────────────────────────────────┤
-  │  ▲                                              │
-  │  │                                              │
-  ▼  │                                              │
-blocked ──────────► in_progress                    │
-  │                                                 │
-  ▼                                                 │
-review ◄───────────────────────────────────────────┤
-  │  ▲                                              │
-  │  └──────────────────────────────────────────────┘
-  ▼
-done ──────────────────────────────────────────────┘
-  │
-  ▼
-archived ◄─────────────────────────────────────────┘
+
+リリース時：
+
+```markdown
+## [0.1.0] - 2025-MM-DD
+
+### Added
+- 0001: Task 作成・更新・状態遷移機能
+- 0002: Task State 管理（optimistic lock）
+- 0003: Decision 追加・承認・拒否
+...
 ```
-
----
-
-## Error Codes
-
-| Code | Description | Action |
-|------|-------------|--------|
-| `not_found` | Entity does not exist | Check ID with `list` command |
-| `validation_error` | Invalid input value | Verify JSON format and enum values |
-| `invalid_transition` | Invalid status transition | Check transition guards |
-| `conflict` | Revision mismatch | Get latest state and retry |
-| `dependency_blocked` | Dependency blocking | Check parent task |
-
----
-
-## 関連資料
-
-- [RUNBOOK.md](./RUNBOOK.md) - 詳細操作手順
-- [agent-taskstate_mvp_spec.md](./agent-taskstate_mvp_spec.md) - MVP 仕様書
-- [agent-taskstate_sqlite_spec.md](./agent-taskstate_sqlite_spec.md) - SQLite 仕様書
-
----
-
-## 変更履歴
-
-| 日付 | 変更内容 |
-|-----|---------|
-| 2026-03-07 | 初版作成 |

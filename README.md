@@ -37,9 +37,9 @@ pytest -q
 
 ## 参照
 
-- `RUNBOOK.md`
-- `EVALUATION.md`
-- `CHECKLISTS.md`
+- `docs/RUNBOOK.md`
+- `docs/EVALUATION.md`
+- `docs/CHECKLISTS.md`
 - `docs/src/agent-taskstate_mvp_spec.md`
 - `docs/src/agent-taskstate_sqlite_spec.md`
 - `docs/src/agent-taskstate_phase2_pulse_kestra_spec.md`

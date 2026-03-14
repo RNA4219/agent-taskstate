@@ -19,8 +19,8 @@
 | `agent-taskstate_mvp_spec.md` | MVP 仕様書 | **更新済** (metadata, created_at 追記) |
 | `agent-taskstate_sqlite_spec.md` | SQLite 仕様書 | 完備 |
 | `agent-taskstate_cli.py` | CLI 実装（単一ファイル MVP） | 実装済 |
-| `RUNBOOK.md` | 運用手順書 | **新規作成済** |
-| `CHECKLISTS.md` | チェックリスト | **新規作成済** |
+| `docs/RUNBOOK.md` | 運用手順書 | **新規作成済** |
+| `docs/CHECKLISTS.md` | チェックリスト | **新規作成済** |
 | `IMPLEMENTATION_VS_DOCS_DIFF.md` | 本資料 | - |
 
 ### 2.2 docs/src/ 配下
@@ -51,12 +51,12 @@ MVP Spec に以下の属性を追記し、SQLite Spec と整合させた：
 | workflow-cookbook テンプレート | agent-taskstate 状態 | 備考 |
 |-------------------------------|---------------------|------|
 | `BLUEPRINT.md` | **未作成** | Problem Statement, Scope, Constraints, I/O Contract が必要 |
-| `RUNBOOK.md` | **未作成** | Execute, Observability, Confirm, Rollback 手順が必要 |
-| `EVALUATION.md` | **未作成** | Acceptance Criteria, KPIs, Test Outline が必要 |
+| `docs/RUNBOOK.md` | **未作成** | Execute, Observability, Confirm, Rollback 手順が必要 |
+| `docs/EVALUATION.md` | **未作成** | Acceptance Criteria, KPIs, Test Outline が必要 |
 | `GUARDRAILS.md` | **未作成** | 実装原則、Birdseye 連携制約が必要 |
 | `HUB.codex.md` | **未作成** | タスク分割ハブが必要 |
-| `CHECKLISTS.md` | **未作成** | Development, PR/Review, Release チェックリストが必要 |
-| `CHANGELOG.md` | **未作成** | 変更履歴が必要 |
+| `docs/CHECKLISTS.md` | **未作成** | Development, PR/Review, Release チェックリストが必要 |
+| `docs/CHANGELOG.md` | **未作成** | 変更履歴が必要 |
 | `CODE_OF_CONDUCT.md` | **未作成** | 行動規範が必要 |
 | `SECURITY.md` | **未作成** | セキュリティポリシーが必要 |
 

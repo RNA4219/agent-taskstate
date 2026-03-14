@@ -22,11 +22,11 @@ next_review_due: 2025-04-07
 1. 目的を一文で定義し、誰のどの課題をなぜ今扱うかを明示する。
 2. Scope を固定し、In/Out の境界を先に決めて記録する。
 3. I/O 契約（入力/出力の型・例）を `BLUEPRINT.md` に整理する。
-4. Acceptance Criteria（検収条件）を `EVALUATION.md` に列挙する。
-5. 開発フロー（準備→実行→確認）を `RUNBOOK.md` に記す。
+4. Acceptance Criteria（検収条件）を `docs/EVALUATION.md` に列挙する。
+5. 開発フロー（準備→実行→確認）を `docs/RUNBOOK.md` に記す。
 6. `HUB.codex.md` の自動タスク分割フローに従い、タスク化した内容を Task Seed へマッピングして配布する。
-7. 完了済みタスクは `CHANGELOG.md` へ移し、履歴を更新する。
-8. テスト/型/lint/CI の実行結果を確認し、`CHECKLISTS.md` でリリース可否を判断する。
+7. 完了済みタスクは `docs/CHANGELOG.md` へ移し、履歴を更新する。
+8. テスト/型/lint/CI の実行結果を確認し、`docs/CHECKLISTS.md` でリリース可否を判断する。
 
 ## 設計原則
 

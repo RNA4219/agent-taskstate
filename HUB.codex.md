@@ -22,12 +22,12 @@ next_review_due: 2025-04-07
 |---------|------|-------|
 | `BLUEPRINT.md` | 要件・制約・背景 | 高 |
 | `GUARDRAILS.md` | ガードレール/行動指針 | 高 |
-| `RUNBOOK.md` | 開発フロー・手順 | 中 |
-| `EVALUATION.md` | 受け入れ基準・品質指標 | 中 |
-| `CHECKLISTS.md` | リリース/レビュー確認項目 | 低 |
+| `docs/RUNBOOK.md` | 開発フロー・手順 | 中 |
+| `docs/EVALUATION.md` | 受け入れ基準・品質指標 | 中 |
+| `docs/CHECKLISTS.md` | リリース/レビュー確認項目 | 低 |
 | `docs/src/*.md` | MVP仕様書・SQLite仕様書 | 高 |
 | `docs/tests/*.feature` | テストシナリオ（Gherkin） | 高 |
-| `CHANGELOG.md` | 完了タスクと履歴の記録 | 中 |
+| `docs/CHANGELOG.md` | 完了タスクと履歴の記録 | 中 |
 
 補完資料:
 
@@ -48,11 +48,11 @@ BLUEPRINT.md (要件)
     │        │
     │        └──→ docs/tests/*.feature (テストシナリオ)
     │
-    ├──→ EVALUATION.md (受入基準)
+    ├──→ docs/EVALUATION.md (受入基準)
     │
-    └──→ RUNBOOK.md (開発フロー)
+    └──→ docs/RUNBOOK.md (開発フロー)
              │
-             └──→ CHECKLISTS.md (チェックリスト)
+             └──→ docs/CHECKLISTS.md (チェックリスト)
 
 GUARDRAILS.md (行動指針)
     │
@@ -100,9 +100,9 @@ GUARDRAILS.md (行動指針)
 - [x] BLUEPRINT.md 作成
 - [x] GUARDRAILS.md 作成
 - [x] HUB.codex.md 作成
-- [x] RUNBOOK.md 作成
-- [x] EVALUATION.md 作成
-- [x] CHECKLISTS.md 作成
+- [x] docs/RUNBOOK.md 作成
+- [x] docs/EVALUATION.md 作成
+- [x] docs/CHECKLISTS.md 作成
 - [x] docs/tests/*.feature テスト設計
 
 ### 完了
