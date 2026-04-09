@@ -45,3 +45,11 @@ pytest -q
 - `docs/src/agent-taskstate_phase2_pulse_kestra_spec.md`
 - `docs/schema/agent-taskstate.sql`
 - `docs/contracts/typed-ref.md`
+
+## workflow-cookbook plugin
+
+- package: `agent_taskstate_workflow_plugin/`
+- factory: `agent_taskstate_workflow_plugin.plugin:create_plugin`
+- capabilities:
+  - `task_state.sync`
+  - `acceptance.index`
