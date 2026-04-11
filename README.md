@@ -1,5 +1,7 @@
 # agent-taskstate Agent README
 
+Version: **1.0.1** | [CHANGELOG](docs/CHANGELOG.md)
+
 人間向けの概要は [README-human.md](README-human.md) を参照してください。
 
 ## 同梱 Skill
