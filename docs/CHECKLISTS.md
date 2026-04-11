@@ -276,9 +276,22 @@ PR 作成時に確認すること。
 
 1. [ ] バージョン番号を決定（セマンティックバージョニング）
 2. [ ] CHANGELOG.md にリリースノートを追加
-3. [ ] タグを作成（`git tag v0.1.0`）
-4. [ ] リリースコミットを作成
-5. [ ] リリースアナウンス（必要な場合）
+3. [ ] Acceptance record を作成（`docs/acceptance/AC-YYYYMMDD-xx.md`）
+4. [ ] `docs/acceptance/INDEX.md` を更新
+5. [ ] タグを作成（`git tag v0.1.0`）
+6. [ ] リリースコミットを作成
+7. [ ] リリースアナウンス（必要な場合）
+
+### 4.6 Acceptance Workflow
+
+重大な変更の検収記録を残す：
+
+- [ ] Acceptance record を `docs/acceptance/AC-YYYYMMDD-xx.md` に作成
+- [ ] front matter (`acceptance_id`, `status`, `reviewed_at`) を記入
+- [ ] `## Scope` で対象/非対象を明示
+- [ ] `## Acceptance Criteria` をチェック済み状態にする
+- [ ] `## Evidence` に実行コマンドと結果を記録
+- [ ] `## Verification Result` で判定 (`approved` / `rejected`) を記述
 
 ---
 

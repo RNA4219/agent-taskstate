@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `workflow-cookbook` から読める `agent_taskstate_workflow_plugin` を追加し、Task Seed / Acceptance の同期と Acceptance index 生成を疎結合 plugin として提供
+- `docs/acceptance/` ディレクトリを追加し、検収記録の置き場とテンプレートを整備
+- Acceptance workflow section を `docs/CHECKLISTS.md` に追加
+- Acceptance 入口を `README.md` に追加
 
 ## [1.0.0] - 2026-03-09
 
