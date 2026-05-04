@@ -190,6 +190,189 @@ class MockTrackerAdapter:
         return True
 
 
+class GitHubAdapter:
+    """
+    GitHub Issues adapter using PyGithub.
+
+    Requires: PyGithub package (pip install PyGithub)
+
+    Config:
+    - token: GitHub personal access token
+    - repo_owner: Repository owner
+    - repo_name: Repository name
+    """
+
+    def __init__(self, token: str, repo_owner: str, repo_name: str):
+        self._token = token
+        self._repo_owner = repo_owner
+        self._repo_name = repo_name
+        self._repo = None
+
+    def _get_repo(self):
+        """Lazy-load repository."""
+        if self._repo is None:
+            try:
+                from github import Github
+                gh = Github(self._token)
+                self._repo = gh.get_repo(f"{self._repo_owner}/{self._repo_name}")
+            except ImportError:
+                raise RuntimeError("PyGithub not installed. Run: pip install PyGithub")
+        return self._repo
+
+    def parse_issue_key(self, issue_key: str) -> int:
+        """Parse issue number from key (e.g., 'owner/repo#123' or '#123')."""
+        if "#" in issue_key:
+            return int(issue_key.split("#")[-1])
+        return int(issue_key)
+
+    def fetch_issue(self, issue_key: str) -> Optional[Dict[str, Any]]:
+        """Fetch issue from GitHub."""
+        try:
+            repo = self._get_repo()
+            issue_num = self.parse_issue_key(issue_key)
+            issue = repo.get_issue(issue_num)
+            return {
+                "key": f"{self._repo_owner}/{self._repo_name}#{issue_num}",
+                "number": issue_num,
+                "title": issue.title,
+                "body": issue.body or "",
+                "state": issue.state,
+                "assignee": issue.assignee.login if issue.assignee else None,
+                "labels": [label.name for label in issue.labels],
+                "created_at": issue.created_at.isoformat(),
+                "updated_at": issue.updated_at.isoformat(),
+                "url": issue.html_url,
+            }
+        except Exception:
+            return None
+
+    def normalize_issue(self, raw: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize GitHub issue to standard format."""
+        return {
+            "remote_key": raw.get("key"),
+            "title": raw.get("title", ""),
+            "status": raw.get("state", "open"),
+            "assignee": raw.get("assignee"),
+            "description": raw.get("body"),
+            "labels": raw.get("labels", []),
+            "url": raw.get("url"),
+        }
+
+    def post_comment(self, issue_key: str, comment: str) -> bool:
+        """Post comment to GitHub issue."""
+        try:
+            repo = self._get_repo()
+            issue_num = self.parse_issue_key(issue_key)
+            issue = repo.get_issue(issue_num)
+            issue.create_comment(comment)
+            return True
+        except Exception:
+            return False
+
+    def update_status(self, issue_key: str, status: str) -> bool:
+        """Update GitHub issue status (open/closed)."""
+        try:
+            repo = self._get_repo()
+            issue_num = self.parse_issue_key(issue_key)
+            issue = repo.get_issue(issue_num)
+            if status.lower() == "closed":
+                issue.edit(state="closed")
+            elif status.lower() == "open":
+                issue.edit(state="open")
+            return True
+        except Exception:
+            return False
+
+
+class JiraAdapter:
+    """
+    Jira adapter using jira library.
+
+    Requires: jira package (pip install jira)
+
+    Config:
+    - server: Jira server URL
+    - username: Jira username/email
+    - password: Jira password or API token
+    """
+
+    def __init__(self, server: str, username: str, password: str):
+        self._server = server
+        self._username = username
+        self._password = password
+        self._jira = None
+
+    def _get_jira(self):
+        """Lazy-load Jira client."""
+        if self._jira is None:
+            try:
+                from jira import JIRA
+                self._jira = JIRA(
+                    server=self._server,
+                    basic_auth=(self._username, self._password),
+                )
+            except ImportError:
+                raise RuntimeError("jira not installed. Run: pip install jira")
+        return self._jira
+
+    def fetch_issue(self, issue_key: str) -> Optional[Dict[str, Any]]:
+        """Fetch issue from Jira."""
+        try:
+            jira = self._get_jira()
+            issue = jira.issue(issue_key)
+            return {
+                "key": issue.key,
+                "summary": issue.fields.summary,
+                "description": issue.fields.description or "",
+                "status": issue.fields.status.name,
+                "assignee": issue.fields.assignee.displayName if issue.fields.assignee else None,
+                "priority": issue.fields.priority.name if issue.fields.priority else None,
+                "labels": [label.name for label in issue.fields.labels],
+                "created_at": issue.fields.created.isoformat() if issue.fields.created else None,
+                "updated_at": issue.fields.updated.isoformat() if issue.fields.updated else None,
+                "url": f"{self._server}/browse/{issue.key}",
+            }
+        except Exception:
+            return None
+
+    def normalize_issue(self, raw: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize Jira issue to standard format."""
+        return {
+            "remote_key": raw.get("key"),
+            "title": raw.get("summary", ""),
+            "status": raw.get("status", "unknown"),
+            "assignee": raw.get("assignee"),
+            "description": raw.get("description"),
+            "priority": raw.get("priority"),
+            "labels": raw.get("labels", []),
+            "url": raw.get("url"),
+        }
+
+    def post_comment(self, issue_key: str, comment: str) -> bool:
+        """Post comment to Jira issue."""
+        try:
+            jira = self._get_jira()
+            issue = jira.issue(issue_key)
+            jira.add_comment(issue, comment)
+            return True
+        except Exception:
+            return False
+
+    def update_status(self, issue_key: str, status: str) -> bool:
+        """Update Jira issue status (transition)."""
+        try:
+            jira = self._get_jira()
+            issue = jira.issue(issue_key)
+            transitions = jira.transitions(issue)
+            for t in transitions:
+                if t["name"].lower() == status.lower():
+                    jira.transition_issue(issue, t["id"])
+                    return True
+            return False
+        except Exception:
+            return False
+
+
 class TrackerBridgeService:
     """Service for tracker-bridge integration."""
 

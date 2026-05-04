@@ -7,17 +7,25 @@ Key features:
 - Bundle generation with source refs tracking
 - Audit information (purpose, rebuild_level, generator_version)
 - Source refs stored in separate table for auditability
+- gzip compression for large JSON fields
+- LRU cache for latest bundle retrieval
+- Differential bundle storage for incremental updates
 """
 
 from __future__ import annotations
 
+import gzip
 import json
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from functools import lru_cache
+from typing import Any, Dict, List, Optional, Tuple
 
 from .typed_ref import canonicalize_ref
+
+# Compression threshold: compress if JSON exceeds this size (bytes)
+COMPRESSION_THRESHOLD = 1024  # 1KB
 
 
 @dataclass
@@ -61,6 +69,11 @@ class ContextBundle:
     generated_at: str
     created_at: str
     sources: List[BundleSource] = field(default_factory=list)
+    # Compression flags (stored separately in DB)
+    _state_snapshot_compressed: bool = False
+    _decision_digest_compressed: bool = False
+    _question_digest_compressed: bool = False
+    _diagnostics_compressed: bool = False
 
     def get_source_refs(self) -> List[str]:
         """Get list of all source refs."""
@@ -74,10 +87,10 @@ class ContextBundle:
             "purpose": self.purpose,
             "rebuild_level": self.rebuild_level,
             "summary": self.summary,
-            "state_snapshot": json.loads(self.state_snapshot_json),
-            "decision_digest": json.loads(self.decision_digest_json) if self.decision_digest_json else None,
-            "question_digest": json.loads(self.question_digest_json) if self.question_digest_json else None,
-            "diagnostics": json.loads(self.diagnostics_json) if self.diagnostics_json else None,
+            "state_snapshot": decompress_json(self.state_snapshot_json, self._state_snapshot_compressed),
+            "decision_digest": decompress_json(self.decision_digest_json, self._decision_digest_compressed) if self.decision_digest_json else None,
+            "question_digest": decompress_json(self.question_digest_json, self._question_digest_compressed) if self.question_digest_json else None,
+            "diagnostics": decompress_json(self.diagnostics_json, self._diagnostics_compressed) if self.diagnostics_json else None,
             "raw_included": self.raw_included,
             "generator_version": self.generator_version,
             "generated_at": self.generated_at,
@@ -109,6 +122,90 @@ SOURCE_KINDS = {
 }
 
 
+def compress_json(data: Any, threshold: int = COMPRESSION_THRESHOLD) -> Tuple[str, bool]:
+    """
+    Compress JSON data if it exceeds threshold.
+
+    Returns:
+        (stored_data, is_compressed) tuple
+    """
+    json_str = json.dumps(data)
+    if len(json_str) < threshold:
+        return (json_str, False)
+
+    compressed = gzip.compress(json_str.encode("utf-8"))
+    # Store as base64-encoded string for SQLite TEXT column
+    import base64
+    return (base64.b64encode(compressed).decode("ascii"), True)
+
+
+def decompress_json(stored_data: str, is_compressed: bool) -> Any:
+    """
+    Decompress JSON data if it was compressed.
+
+    Args:
+        stored_data: Stored string (either raw JSON or base64-encoded gzip)
+        is_compressed: Whether the data was compressed
+
+    Returns:
+        Parsed JSON object
+    """
+    if not is_compressed:
+        return json.loads(stored_data)
+
+    import base64
+    compressed = base64.b64decode(stored_data.encode("ascii"))
+    json_str = gzip.decompress(compressed).decode("utf-8")
+    return json.loads(json_str)
+
+
+def compute_diff(prev_bundle: Optional[ContextBundle], new_snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Compute differential update between bundles.
+
+    Returns only changed fields to reduce storage.
+    """
+    if prev_bundle is None:
+        return new_snapshot
+
+    prev_snapshot = decompress_json(
+        prev_bundle.state_snapshot_json,
+        prev_bundle._state_snapshot_compressed
+    )
+
+    diff = {}
+    for key, new_val in new_snapshot.items():
+        prev_val = prev_snapshot.get(key)
+        if new_val != prev_val:
+            diff[key] = new_val
+
+    return diff if diff else new_snapshot
+
+
+def decompress_bundle_json(bundle: ContextBundle) -> Dict[str, Any]:
+    """Decompress all JSON fields in a bundle."""
+    result = {}
+
+    # state_snapshot_json is always present
+    is_compressed = getattr(bundle, "_state_snapshot_compressed", False)
+    result["state_snapshot"] = decompress_json(bundle.state_snapshot_json, is_compressed)
+
+    # Optional JSON fields
+    if bundle.decision_digest_json:
+        is_compressed = getattr(bundle, "_decision_digest_compressed", False)
+        result["decision_digest"] = decompress_json(bundle.decision_digest_json, is_compressed)
+
+    if bundle.question_digest_json:
+        is_compressed = getattr(bundle, "_question_digest_compressed", False)
+        result["question_digest"] = decompress_json(bundle.question_digest_json, is_compressed)
+
+    if bundle.diagnostics_json:
+        is_compressed = getattr(bundle, "_diagnostics_compressed", False)
+        result["diagnostics"] = decompress_json(bundle.diagnostics_json, is_compressed)
+
+    return result
+
+
 def now_utc() -> str:
     """Return current UTC timestamp in ISO format."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
@@ -124,9 +221,18 @@ def gen_id() -> str:
 class ContextBundleService:
     """Service for creating and managing context bundles."""
 
+    # Cache for latest bundle lookups (per task_id)
+    # Using instance-level cache that can be cleared
+    _latest_cache: Dict[str, ContextBundle] = {}
+    _cache_max_size: int = 100
+
     def __init__(self, conn: sqlite3.Connection, generator_version: str = "1.0.0"):
         self.conn = conn
         self.generator_version = generator_version
+
+    def clear_cache(self) -> None:
+        """Clear the latest bundle cache."""
+        self._latest_cache.clear()
 
     def create_bundle(
         self,
@@ -139,8 +245,14 @@ class ContextBundleService:
         diagnostics: Optional[Dict[str, Any]] = None,
         summary: Optional[str] = None,
         raw_included: bool = False,
+        use_diff: bool = False,
     ) -> ContextBundle:
-        """Create a new context bundle."""
+        """
+        Create a new context bundle.
+
+        Args:
+            use_diff: If True, compute differential against previous bundle
+        """
         if purpose not in PURPOSE_TYPES:
             raise ValueError(f"Invalid purpose: {purpose}")
         if rebuild_level not in REBUILD_LEVELS:
@@ -149,13 +261,26 @@ class ContextBundleService:
         bundle_id = gen_id()
         now = now_utc()
 
+        # Get previous bundle for diff calculation
+        prev_bundle = None
+        if use_diff:
+            prev_bundle = self._get_latest_bundle_no_cache(task_id)
+            state_snapshot = compute_diff(prev_bundle, state_snapshot)
+
+        # Compress JSON fields
+        state_data, state_compressed = compress_json(state_snapshot)
+        decision_data, decision_compressed = compress_json(decision_digest) if decision_digest else (None, False)
+        question_data, question_compressed = compress_json(question_digest) if question_digest else (None, False)
+        diag_data, diag_compressed = compress_json(diagnostics) if diagnostics else (None, False)
+
         self.conn.execute(
             """
             INSERT INTO context_bundle
                 (id, task_id, purpose, rebuild_level, summary, state_snapshot_json,
                  decision_digest_json, question_digest_json, diagnostics_json, raw_included,
-                 generator_version, generated_at, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 generator_version, generated_at, created_at,
+                 state_snapshot_compressed, decision_digest_compressed, question_digest_compressed, diagnostics_compressed)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 bundle_id,
@@ -163,32 +288,46 @@ class ContextBundleService:
                 purpose,
                 rebuild_level,
                 summary,
-                json.dumps(state_snapshot),
-                json.dumps(decision_digest) if decision_digest else None,
-                json.dumps(question_digest) if question_digest else None,
-                json.dumps(diagnostics) if diagnostics else None,
+                state_data,
+                decision_data,
+                question_data,
+                diag_data,
                 1 if raw_included else 0,
                 self.generator_version,
                 now,
                 now,
+                1 if state_compressed else 0,
+                1 if decision_compressed else 0,
+                1 if question_compressed else 0,
+                1 if diag_compressed else 0,
             ),
         )
 
-        return ContextBundle(
+        bundle = ContextBundle(
             id=bundle_id,
             task_id=task_id,
             purpose=purpose,
             rebuild_level=rebuild_level,
             summary=summary,
-            state_snapshot_json=json.dumps(state_snapshot),
-            decision_digest_json=json.dumps(decision_digest) if decision_digest else None,
-            question_digest_json=json.dumps(question_digest) if question_digest else None,
-            diagnostics_json=json.dumps(diagnostics) if diagnostics else None,
+            state_snapshot_json=state_data,
+            decision_digest_json=decision_data,
+            question_digest_json=question_data,
+            diagnostics_json=diag_data,
             raw_included=raw_included,
             generator_version=self.generator_version,
             generated_at=now,
             created_at=now,
+            _state_snapshot_compressed=state_compressed,
+            _decision_digest_compressed=decision_compressed,
+            _question_digest_compressed=question_compressed,
+            _diagnostics_compressed=diag_compressed,
         )
+
+        # Invalidate cache for this task
+        if task_id in self._latest_cache:
+            del self._latest_cache[task_id]
+
+        return bundle
 
     def add_source(
         self,
@@ -238,7 +377,8 @@ class ContextBundleService:
             """
             SELECT id, task_id, purpose, rebuild_level, summary, state_snapshot_json,
                    decision_digest_json, question_digest_json, diagnostics_json, raw_included,
-                   generator_version, generated_at, created_at
+                   generator_version, generated_at, created_at,
+                   state_snapshot_compressed, decision_digest_compressed, question_digest_compressed, diagnostics_compressed
             FROM context_bundle
             WHERE id = ?
             """,
@@ -263,12 +403,16 @@ class ContextBundleService:
             generator_version=row[10],
             generated_at=row[11],
             created_at=row[12],
+            _state_snapshot_compressed=bool(row[13]) if len(row) > 13 else False,
+            _decision_digest_compressed=bool(row[14]) if len(row) > 14 else False,
+            _question_digest_compressed=bool(row[15]) if len(row) > 15 else False,
+            _diagnostics_compressed=bool(row[16]) if len(row) > 16 else False,
         )
         bundle.sources = self._load_sources(bundle_id)
         return bundle
 
-    def get_latest_bundle(self, task_id: str) -> Optional[ContextBundle]:
-        """Get the latest context bundle for a task."""
+    def _get_latest_bundle_no_cache(self, task_id: str) -> Optional[ContextBundle]:
+        """Get latest bundle without using cache."""
         cursor = self.conn.execute(
             """
             SELECT id FROM context_bundle
@@ -284,6 +428,23 @@ class ContextBundleService:
             return None
 
         return self.get_bundle(row[0])
+
+    def get_latest_bundle(self, task_id: str) -> Optional[ContextBundle]:
+        """Get the latest context bundle for a task (cached)."""
+        # Check cache first
+        if task_id in self._latest_cache:
+            return self._latest_cache[task_id]
+
+        bundle = self._get_latest_bundle_no_cache(task_id)
+        if bundle:
+            # Manage cache size
+            if len(self._latest_cache) >= self._cache_max_size:
+                # Remove oldest entry (simple FIFO)
+                oldest_key = next(iter(self._latest_cache))
+                del self._latest_cache[oldest_key]
+            self._latest_cache[task_id] = bundle
+
+        return bundle
 
     def list_bundles(self, task_id: str) -> List[ContextBundle]:
         """List all context bundles for a task."""
@@ -378,6 +539,12 @@ def create_bundle_tables(conn: sqlite3.Connection) -> None:
         "INTEGER NOT NULL DEFAULT 0",
     )
     _ensure_column(conn, "context_bundle_source", "metadata_json", "TEXT")
+
+    # Compression flag columns for gzip-compressed JSON fields
+    _ensure_column(conn, "context_bundle", "state_snapshot_compressed", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(conn, "context_bundle", "decision_digest_compressed", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(conn, "context_bundle", "question_digest_compressed", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(conn, "context_bundle", "diagnostics_compressed", "INTEGER NOT NULL DEFAULT 0")
 
     conn.execute(
         """

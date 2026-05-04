@@ -432,3 +432,313 @@ class AgentTaskstateLocalResolver:
                 metadata=summary.metadata,
             )
         return None
+
+
+class TrackerResolver:
+    """
+    Resolver for tracker issue refs.
+
+    Resolves refs like tracker:issue:github:owner/repo#123, tracker:issue:jira:PROJ-123
+
+    Uses TrackerAdapter for actual fetch operations.
+    """
+
+    def __init__(self, adapters: Optional[Dict[str, "TrackerAdapter"]] = None):
+        """
+        Initialize with provider-specific adapters.
+
+        Args:
+            adapters: Dict mapping provider name to TrackerAdapter instance
+        """
+        self._adapters = adapters or {}
+
+    def register_adapter(self, provider: str, adapter: "TrackerAdapter") -> None:
+        """Register adapter for a provider."""
+        self._adapters[provider] = adapter
+
+    def can_resolve(self, ref: str) -> bool:
+        """Check if this is a tracker issue ref."""
+        from .typed_ref import parse_ref
+        try:
+            parsed = parse_ref(ref)
+            return parsed.domain == "tracker" and parsed.entity_type == "issue"
+        except ValueError:
+            return False
+
+    def resolve(self, ref: str) -> ResolvedRef:
+        """Resolve a tracker issue ref."""
+        from .typed_ref import parse_ref
+        try:
+            parsed = parse_ref(ref)
+            provider = parsed.provider
+            issue_key = parsed.entity_id
+
+            adapter = self._adapters.get(provider)
+            if not adapter:
+                return ResolvedRef(
+                    ref=ref,
+                    status=ResolveStatus.UNSUPPORTED,
+                    error_message=f"No adapter for tracker provider: {provider}",
+                )
+
+            raw = adapter.fetch_issue(issue_key)
+            if not raw:
+                return ResolvedRef(
+                    ref=ref,
+                    status=ResolveStatus.UNRESOLVED,
+                    error_message=f"Issue not found: {issue_key}",
+                )
+
+            normalized = adapter.normalize_issue(raw)
+            return ResolvedRef(
+                ref=ref,
+                status=ResolveStatus.RESOLVED,
+                summary=normalized.get("title", ""),
+                metadata={
+                    "remote_key": normalized.get("remote_key"),
+                    "status": normalized.get("status"),
+                    "assignee": normalized.get("assignee"),
+                },
+                raw_available=True,
+            )
+
+        except ValueError as e:
+            return ResolvedRef(
+                ref=ref,
+                status=ResolveStatus.UNSUPPORTED,
+                error_message=str(e),
+            )
+
+    def load_summary(self, ref: str) -> Optional[SummaryPayload]:
+        """Load summary for a tracker issue."""
+        result = self.resolve(ref)
+        if result.status == ResolveStatus.RESOLVED and result.summary:
+            return SummaryPayload(
+                ref=ref,
+                summary=result.summary,
+                metadata=result.metadata or {},
+            )
+        return None
+
+    def load_raw(self, ref: str, selector: Optional[Dict[str, Any]] = None) -> Optional[RawPayload]:
+        """Load raw content for a tracker issue."""
+        from .typed_ref import parse_ref
+        try:
+            parsed = parse_ref(ref)
+            adapter = self._adapters.get(parsed.provider)
+            if not adapter:
+                return None
+
+            raw = adapter.fetch_issue(parsed.entity_id)
+            if not raw:
+                return None
+
+            import json
+            return RawPayload(
+                ref=ref,
+                content=json.dumps(raw, ensure_ascii=False),
+                metadata={"provider": parsed.provider},
+            )
+        except Exception:
+            return None
+
+
+class MemxResolver:
+    """
+    Resolver for memx entity refs.
+
+    Resolves refs like memx:evidence:local:ev_01JXYZ..., memx:knowledge:local:kn_01JXYZ...
+
+    Designed for integration with memx-resolver repo.
+    Uses callback functions for actual fetch operations.
+    """
+
+    def __init__(
+        self,
+        fetch_evidence: Optional[callable] = None,
+        fetch_knowledge: Optional[callable] = None,
+        fetch_chunk: Optional[callable] = None,
+    ):
+        """
+        Initialize with fetch callbacks.
+
+        Args:
+            fetch_evidence: Callable to fetch evidence by ID
+            fetch_knowledge: Callable to fetch knowledge by ID
+            fetch_chunk: Callable to fetch chunk by ID
+        """
+        self._fetch_evidence = fetch_evidence
+        self._fetch_knowledge = fetch_knowledge
+        self._fetch_chunk = fetch_chunk
+
+    def can_resolve(self, ref: str) -> bool:
+        """Check if this is a memx ref."""
+        from .typed_ref import parse_ref
+        try:
+            parsed = parse_ref(ref)
+            return parsed.domain == "memx"
+        except ValueError:
+            return False
+
+    def resolve(self, ref: str) -> ResolvedRef:
+        """Resolve a memx entity ref."""
+        from .typed_ref import parse_ref
+        try:
+            parsed = parse_ref(ref)
+            entity_type = parsed.entity_type
+            entity_id = parsed.entity_id
+
+            if entity_type == "evidence":
+                return self._resolve_evidence(entity_id)
+            elif entity_type == "knowledge":
+                return self._resolve_knowledge(entity_id)
+            elif entity_type == "chunk":
+                return self._resolve_chunk(entity_id)
+            else:
+                return ResolvedRef(
+                    ref=ref,
+                    status=ResolveStatus.UNSUPPORTED,
+                    error_message=f"Unknown memx entity type: {entity_type}",
+                )
+
+        except ValueError as e:
+            return ResolvedRef(
+                ref=ref,
+                status=ResolveStatus.UNSUPPORTED,
+                error_message=str(e),
+            )
+
+    def _resolve_evidence(self, evidence_id: str) -> ResolvedRef:
+        """Resolve evidence entity."""
+        if not self._fetch_evidence:
+            return ResolvedRef(
+                ref=f"memx:evidence:local:{evidence_id}",
+                status=ResolveStatus.UNRESOLVED,
+                error_message="No evidence fetch callback configured",
+            )
+
+        try:
+            data = self._fetch_evidence(evidence_id)
+            if not data:
+                return ResolvedRef(
+                    ref=f"memx:evidence:local:{evidence_id}",
+                    status=ResolveStatus.UNRESOLVED,
+                    error_message=f"Evidence not found: {evidence_id}",
+                )
+
+            return ResolvedRef(
+                ref=f"memx:evidence:local:{evidence_id}",
+                status=ResolveStatus.RESOLVED,
+                summary=data.get("summary", data.get("title", "")),
+                metadata={"kind": data.get("kind"), "source": data.get("source")},
+                raw_available=True,
+            )
+        except Exception as e:
+            return ResolvedRef(
+                ref=f"memx:evidence:local:{evidence_id}",
+                status=ResolveStatus.UNRESOLVED,
+                error_message=str(e),
+            )
+
+    def _resolve_knowledge(self, knowledge_id: str) -> ResolvedRef:
+        """Resolve knowledge entity."""
+        if not self._fetch_knowledge:
+            return ResolvedRef(
+                ref=f"memx:knowledge:local:{knowledge_id}",
+                status=ResolveStatus.UNRESOLVED,
+                error_message="No knowledge fetch callback configured",
+            )
+
+        try:
+            data = self._fetch_knowledge(knowledge_id)
+            if not data:
+                return ResolvedRef(
+                    ref=f"memx:knowledge:local:{knowledge_id}",
+                    status=ResolveStatus.UNRESOLVED,
+                    error_message=f"Knowledge not found: {knowledge_id}",
+                )
+
+            return ResolvedRef(
+                ref=f"memx:knowledge:local:{knowledge_id}",
+                status=ResolveStatus.RESOLVED,
+                summary=data.get("summary", data.get("title", "")),
+                metadata={"category": data.get("category")},
+                raw_available=True,
+            )
+        except Exception as e:
+            return ResolvedRef(
+                ref=f"memx:knowledge:local:{knowledge_id}",
+                status=ResolveStatus.UNRESOLVED,
+                error_message=str(e),
+            )
+
+    def _resolve_chunk(self, chunk_id: str) -> ResolvedRef:
+        """Resolve chunk entity."""
+        if not self._fetch_chunk:
+            return ResolvedRef(
+                ref=f"memx:chunk:local:{chunk_id}",
+                status=ResolveStatus.UNRESOLVED,
+                error_message="No chunk fetch callback configured",
+            )
+
+        try:
+            data = self._fetch_chunk(chunk_id)
+            if not data:
+                return ResolvedRef(
+                    ref=f"memx:chunk:local:{chunk_id}",
+                    status=ResolveStatus.UNRESOLVED,
+                    error_message=f"Chunk not found: {chunk_id}",
+                )
+
+            return ResolvedRef(
+                ref=f"memx:chunk:local:{chunk_id}",
+                status=ResolveStatus.RESOLVED,
+                summary=data.get("summary", ""),
+                metadata={"doc_ref": data.get("doc_ref")},
+                raw_available=True,
+            )
+        except Exception as e:
+            return ResolvedRef(
+                ref=f"memx:chunk:local:{chunk_id}",
+                status=ResolveStatus.UNRESOLVED,
+                error_message=str(e),
+            )
+
+    def load_summary(self, ref: str) -> Optional[SummaryPayload]:
+        """Load summary for a memx entity."""
+        result = self.resolve(ref)
+        if result.status == ResolveStatus.RESOLVED and result.summary:
+            return SummaryPayload(
+                ref=ref,
+                summary=result.summary,
+                metadata=result.metadata or {},
+            )
+        return None
+
+    def load_raw(self, ref: str, selector: Optional[Dict[str, Any]] = None) -> Optional[RawPayload]:
+        """Load raw content for a memx entity."""
+        from .typed_ref import parse_ref
+        try:
+            parsed = parse_ref(ref)
+            entity_id = parsed.entity_id
+
+            if parsed.entity_type == "evidence" and self._fetch_evidence:
+                data = self._fetch_evidence(entity_id)
+            elif parsed.entity_type == "knowledge" and self._fetch_knowledge:
+                data = self._fetch_knowledge(entity_id)
+            elif parsed.entity_type == "chunk" and self._fetch_chunk:
+                data = self._fetch_chunk(entity_id)
+            else:
+                return None
+
+            if not data:
+                return None
+
+            import json
+            return RawPayload(
+                ref=ref,
+                content=json.dumps(data, ensure_ascii=False),
+                metadata={"entity_type": parsed.entity_type},
+            )
+        except Exception:
+            return None

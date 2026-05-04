@@ -3,21 +3,83 @@ Test helper functions for agent-taskstate CLI testing.
 """
 
 import argparse
-import importlib.util
 import io
 import json
 import sqlite3
-import sys
 from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any, Dict
 
-# Load CLI module from file (filename contains hyphen)
-_cli_path = Path(__file__).parent.parent / "docs" / "src" / "agent-taskstate_cli.py"
-_spec = importlib.util.spec_from_file_location("agent_taskstate", _cli_path)
-agent_taskstate = importlib.util.module_from_spec(_spec)
-sys.modules["agent_taskstate"] = agent_taskstate
-_spec.loader.exec_module(agent_taskstate)
+# Import CLI module from src.cli
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+import cli as agent_taskstate
+from cli.utils import gen_id, now_utc, json_ok, json_error
+from cli.models import jdump, jload, row_to_task, row_to_task_state, row_to_decision, row_to_question, row_to_run
+from cli.db import connect, init_db, SCHEMA_SQL
+from cli.constants import EXPECTED_OUTPUT_SCHEMA, TASK_KINDS, TASK_STATUSES, TASK_PRIORITIES, OWNER_TYPES
+from cli.errors import AgentTaskstateError, NotFoundError, ConflictError, InvalidTransitionError, DependencyBlockedError
+from cli.commands import (
+    cmd_init, cmd_task_create, cmd_task_show, cmd_task_list, cmd_task_update, cmd_task_set_status,
+    cmd_state_get, cmd_state_put, cmd_state_patch,
+    cmd_decision_add, cmd_decision_list, cmd_decision_accept, cmd_decision_reject,
+    cmd_question_add, cmd_question_list, cmd_question_answer, cmd_question_defer,
+    cmd_run_start, cmd_run_list, cmd_run_finish,
+    cmd_context_build, cmd_context_show,
+    cmd_export_task,
+)
+from cli import AppContext
+
+
+# Re-export expected attributes for compatibility
+agent_taskstate.gen_id = gen_id
+agent_taskstate.now_utc = now_utc
+agent_taskstate.jdump = jdump
+agent_taskstate.jload = jload
+agent_taskstate.json_ok = json_ok
+agent_taskstate.json_error = json_error
+agent_taskstate.connect = connect
+agent_taskstate.init_db = init_db
+agent_taskstate.SCHEMA_SQL = SCHEMA_SQL
+agent_taskstate.EXPECTED_OUTPUT_SCHEMA = EXPECTED_OUTPUT_SCHEMA
+agent_taskstate.TASK_KINDS = TASK_KINDS
+agent_taskstate.TASK_STATUSES = TASK_STATUSES
+agent_taskstate.TASK_PRIORITIES = TASK_PRIORITIES
+agent_taskstate.OWNER_TYPES = OWNER_TYPES
+agent_taskstate.AgentTaskstateError = AgentTaskstateError
+agent_taskstate.NotFoundError = NotFoundError
+agent_taskstate.ConflictError = ConflictError
+agent_taskstate.InvalidTransitionError = InvalidTransitionError
+agent_taskstate.DependencyBlockedError = DependencyBlockedError
+agent_taskstate.row_to_task = row_to_task
+agent_taskstate.row_to_task_state = row_to_task_state
+agent_taskstate.row_to_decision = row_to_decision
+agent_taskstate.row_to_question = row_to_question
+agent_taskstate.row_to_run = row_to_run
+agent_taskstate.AppContext = AppContext
+agent_taskstate.cmd_init = cmd_init
+agent_taskstate.cmd_task_create = cmd_task_create
+agent_taskstate.cmd_task_show = cmd_task_show
+agent_taskstate.cmd_task_list = cmd_task_list
+agent_taskstate.cmd_task_update = cmd_task_update
+agent_taskstate.cmd_task_set_status = cmd_task_set_status
+agent_taskstate.cmd_state_get = cmd_state_get
+agent_taskstate.cmd_state_put = cmd_state_put
+agent_taskstate.cmd_state_patch = cmd_state_patch
+agent_taskstate.cmd_decision_add = cmd_decision_add
+agent_taskstate.cmd_decision_list = cmd_decision_list
+agent_taskstate.cmd_decision_accept = cmd_decision_accept
+agent_taskstate.cmd_decision_reject = cmd_decision_reject
+agent_taskstate.cmd_question_add = cmd_question_add
+agent_taskstate.cmd_question_list = cmd_question_list
+agent_taskstate.cmd_question_answer = cmd_question_answer
+agent_taskstate.cmd_question_defer = cmd_question_defer
+agent_taskstate.cmd_run_start = cmd_run_start
+agent_taskstate.cmd_run_list = cmd_run_list
+agent_taskstate.cmd_run_finish = cmd_run_finish
+agent_taskstate.cmd_context_build = cmd_context_build
+agent_taskstate.cmd_context_show = cmd_context_show
+agent_taskstate.cmd_export_task = cmd_export_task
 
 
 # ============================================

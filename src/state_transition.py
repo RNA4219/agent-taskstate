@@ -8,6 +8,8 @@ Design principles:
 - task.status is materialized current state
 - state_transition table holds append-only history
 - Every transition has reason and actor
+
+Supports configurable transitions via TransitionConfig.
 """
 
 from __future__ import annotations
@@ -15,22 +17,16 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import List, Optional
 
-# Allowed transitions based on state-machine.md
-ALLOWED_TRANSITIONS = {
-    "proposed": {"ready", "cancelled"},
-    "ready": {"in_progress", "cancelled"},
-    "in_progress": {"blocked", "review", "cancelled"},
-    "blocked": {"in_progress", "cancelled"},
-    "review": {"in_progress", "done", "cancelled"},
-    "done": {"in_progress"},  # reopen (exception, requires reason)
-    "cancelled": set(),
-}
+from .transition_config import TransitionConfig, DEFAULT_CONFIG, get_config
 
-TERMINAL_STATES = {"done", "cancelled"}
-
-ACTOR_TYPES = {"human", "agent", "system"}
+# Default transitions (from TransitionConfig)
+# Can be overridden by loading a custom config
+ALLOWED_TRANSITIONS = DEFAULT_CONFIG.allowed_transitions
+TERMINAL_STATES = DEFAULT_CONFIG.terminal_states
+ACTOR_TYPES = DEFAULT_CONFIG.actor_types
 
 
 @dataclass
@@ -132,10 +128,44 @@ class StateTransitionService:
 
     All task status changes must go through this service to ensure
     history is properly recorded.
+
+    Supports custom transition configurations.
     """
 
-    def __init__(self, conn: sqlite3.Connection):
+    def __init__(
+        self,
+        conn: sqlite3.Connection,
+        config: Optional[TransitionConfig] = None,
+    ):
         self.conn = conn
+        self.config = config or DEFAULT_CONFIG
+
+    @property
+    def allowed_transitions(self) -> dict:
+        """Get allowed transitions from config."""
+        return self.config.allowed_transitions
+
+    @property
+    def terminal_states(self) -> set:
+        """Get terminal states from config."""
+        return self.config.terminal_states
+
+    @property
+    def actor_types(self) -> set:
+        """Get valid actor types from config."""
+        return self.config.actor_types
+
+    def can_transition(self, from_status: str, to_status: str) -> bool:
+        """Check if transition is allowed using config."""
+        return self.config.can_transition(from_status, to_status)
+
+    def is_terminal(self, status: str) -> bool:
+        """Check if status is terminal using config."""
+        return self.config.is_terminal(status)
+
+    def requires_reason(self, from_status: str, to_status: str) -> bool:
+        """Check if transition requires reason using config."""
+        return self.config.requires_reason(from_status, to_status)
 
     def transition(
         self,
@@ -166,7 +196,7 @@ class StateTransitionService:
             MissingReasonError: If required reason is not provided
         """
         # Validate actor type
-        if actor_type not in ACTOR_TYPES:
+        if not self.config.is_valid_actor(actor_type):
             raise ValueError(f"Invalid actor_type: {actor_type}")
 
         # Get current task status
@@ -180,13 +210,13 @@ class StateTransitionService:
         from_status = row[0]
 
         # Check if transition is allowed
-        if not can_transition(from_status, to_status):
-            if is_terminal(from_status):
+        if not self.can_transition(from_status, to_status):
+            if self.is_terminal(from_status):
                 raise TerminalStateError(from_status)
             raise InvalidTransitionError(from_status, to_status)
 
         # Check if reason is required
-        if requires_reason(from_status, to_status) and not reason:
+        if self.requires_reason(from_status, to_status) and not reason:
             raise MissingReasonError(f"{from_status} -> {to_status}")
 
         # Create transition record

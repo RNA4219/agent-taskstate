@@ -26,6 +26,13 @@ from .state_transition import (
     TERMINAL_STATES,
 )
 
+from .transition_config import (
+    TransitionConfig,
+    DEFAULT_CONFIG,
+    get_config,
+    reload_config,
+)
+
 from .context_bundle import (
     ContextBundle,
     BundleSource,
@@ -33,6 +40,11 @@ from .context_bundle import (
     REBUILD_LEVELS,
     PURPOSE_TYPES,
     SOURCE_KINDS,
+    compress_json,
+    decompress_json,
+    compute_diff,
+    decompress_bundle_json,
+    COMPRESSION_THRESHOLD,
 )
 
 from .resolver import (
@@ -44,6 +56,8 @@ from .resolver import (
     RawPayload,
     ResolverDiagnostics,
     AgentTaskstateLocalResolver,
+    TrackerResolver,
+    MemxResolver,
     RAW_DESCENT_CONDITIONS,
 )
 
@@ -59,6 +73,8 @@ from .tracker_bridge import (
     SyncStatus,
     LinkRole,
     MockTrackerAdapter,
+    GitHubAdapter,
+    JiraAdapter,
     create_tracker_tables,
 )
 
@@ -85,6 +101,11 @@ __all__ = [
     "requires_reason",
     "ALLOWED_TRANSITIONS",
     "TERMINAL_STATES",
+    # transition_config
+    "TransitionConfig",
+    "DEFAULT_CONFIG",
+    "get_config",
+    "reload_config",
     # context_bundle
     "ContextBundle",
     "BundleSource",
@@ -92,6 +113,11 @@ __all__ = [
     "REBUILD_LEVELS",
     "PURPOSE_TYPES",
     "SOURCE_KINDS",
+    "compress_json",
+    "decompress_json",
+    "compute_diff",
+    "decompress_bundle_json",
+    "COMPRESSION_THRESHOLD",
     # resolver
     "ContextRebuildResolver",
     "ResolveStatus",
@@ -101,6 +127,8 @@ __all__ = [
     "RawPayload",
     "ResolverDiagnostics",
     "AgentTaskstateLocalResolver",
+    "TrackerResolver",
+    "MemxResolver",
     "RAW_DESCENT_CONDITIONS",
     # tracker_bridge
     "TrackerBridgeService",
@@ -114,5 +142,7 @@ __all__ = [
     "SyncStatus",
     "LinkRole",
     "MockTrackerAdapter",
+    "GitHubAdapter",
+    "JiraAdapter",
     "create_tracker_tables",
 ]
