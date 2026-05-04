@@ -39,7 +39,11 @@ class TransitionConfig:
         "done": {"in_progress"},
         "cancelled": set(),
     })
-    reason_required: List[Dict[str, str]] = field(default_factory=list)
+    reason_required: List[Dict[str, str]] = field(default_factory=lambda: [
+        {"from": "done", "to": "in_progress"},
+        {"from": "*", "to": "done"},
+        {"from": "*", "to": "cancelled"},
+    ])
     actor_types: Set[str] = field(default_factory=lambda: {"human", "agent", "system"})
 
     @classmethod
