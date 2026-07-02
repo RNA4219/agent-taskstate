@@ -67,3 +67,6 @@ pytest -q
 - capabilities:
   - `task_state.sync`
   - `acceptance.index`
+- options:
+  - `require_acceptance_for_done` (`false` by default): `done` task に acceptance
+    record が無い場合、error ではなく warning として返す

@@ -16,8 +16,10 @@ class AgentTaskstateWorkflowPlugin:
         *,
         tasks_dir: str = "docs/tasks",
         acceptance_dir: str = "docs/acceptance",
+        require_acceptance_for_done: bool = False,
         store: TaskAcceptanceStore | None = None,
     ) -> None:
+        self._require_acceptance_for_done = require_acceptance_for_done
         self._store = store or MarkdownTaskAcceptanceStore(
             tasks_dir=tasks_dir,
             acceptance_dir=acceptance_dir,
@@ -31,14 +33,17 @@ class AgentTaskstateWorkflowPlugin:
             by_task.setdefault(acceptance["task_id"], []).append(acceptance)
 
         errors: list[str] = []
+        warnings: list[str] = []
         rendered_tasks: list[dict] = []
         for task in tasks:
             linked = by_task.get(task.task_id, [])
             acceptance_ids = [item["acceptance_id"] for item in linked]
             if task.status.lower() == "done" and not acceptance_ids:
-                errors.append(
-                    f"Done task '{task.task_id}' is missing an acceptance record."
-                )
+                message = f"Done task '{task.task_id}' is missing an acceptance record."
+                if self._require_acceptance_for_done:
+                    errors.append(message)
+                else:
+                    warnings.append(message)
             for acceptance in linked:
                 if acceptance["intent_id"] != task.intent_id:
                     errors.append(
@@ -68,7 +73,7 @@ class AgentTaskstateWorkflowPlugin:
             tasks=rendered_tasks,
             acceptances=acceptances,
             errors=errors,
-            warnings=[],
+            warnings=warnings,
         )
 
     def build_acceptance_index(self, *, repo_root: Path) -> AcceptanceIndexResult:
