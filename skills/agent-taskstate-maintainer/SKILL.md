@@ -1,6 +1,6 @@
 ---
 name: agent-taskstate-maintainer
-description: Maintain and verify the C:\Users\ryo-n\Codex_dev\agent-taskstate repository. Use when working in this repo to review requirements, fix implementation gaps, align code with docs, tests, and schema, update README guidance, or prepare acceptance, commit, and push. Triggers include requests about typed_ref, context bundles, resolver, tracker bridge, kv-priority-roadmap, and repo-specific code review.
+description: Maintain and verify the ..\agent-taskstate repository. Use when working in this repo to review requirements, fix implementation gaps, align code with docs, tests, and schema, update README guidance, or prepare acceptance, commit, and push. Triggers include requests about typed_ref, context bundles, resolver, tracker bridge, kv-priority-roadmap, and repo-specific code review.
 ---
 
 # Agent-taskstate Maintainer
