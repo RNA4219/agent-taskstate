@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 
@@ -48,7 +48,53 @@ reviewed_by: docs-core
 
     assert isinstance(report, TaskAcceptanceSyncResult)
     assert report.errors == []
+    assert report.warnings == []
     assert report.tasks[0]["acceptance_ids"] == ["AC-20260410-01"]
+
+
+def test_sync_task_acceptance_warns_for_done_task_without_acceptance_by_default(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "docs" / "tasks" / "task-sample.md",
+        """
+---
+task_id: 20260410-02
+intent_id: INT-001
+owner: docs-core
+status: done
+---
+
+# Task Seed: Sample
+""",
+    )
+
+    plugin = create_plugin()
+    report = plugin.sync_task_acceptance(repo_root=tmp_path)
+
+    assert report.errors == []
+    assert report.warnings == ["Done task '20260410-02' is missing an acceptance record."]
+    assert report.tasks[0]["acceptance_ids"] == []
+
+
+def test_sync_task_acceptance_can_require_acceptance_for_done_tasks(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "docs" / "tasks" / "task-sample.md",
+        """
+---
+task_id: 20260410-03
+intent_id: INT-001
+owner: docs-core
+status: done
+---
+
+# Task Seed: Sample
+""",
+    )
+
+    plugin = create_plugin(require_acceptance_for_done=True)
+    report = plugin.sync_task_acceptance(repo_root=tmp_path)
+
+    assert report.errors == ["Done task '20260410-03' is missing an acceptance record."]
+    assert report.warnings == []
 
 
 def test_build_acceptance_index_renders_table(tmp_path: Path) -> None:

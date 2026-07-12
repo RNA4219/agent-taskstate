@@ -256,3 +256,10 @@ MVP Spec に以下の属性を追記し、SQLite Spec と整合させた：
 3. Export 手順
 4. トラブルシューティング
 5. 将来拡張ポイント
+
+## 1.1.0統合改修追補
+
+- canonical実装は `src/agent_taskstate/` に限定し、`src.cli`はDeprecationWarning付き再export shimとする。
+- typed_refは4セグメントcanonical、3セグメントはread-both/write-oneで扱う。
+- status変更は `state_transitions` とtasks.statusを同一transactionで更新する。
+- bundleは差分保存せず完全immutable snapshotとし、sources/diagnostics/raw/generator metadataを監査可能にする。

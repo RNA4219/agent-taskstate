@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for state_transition module.
 
 Covers:
@@ -10,7 +10,7 @@ Covers:
 import pytest
 import sqlite3
 
-from src.state_transition import (
+from agent_taskstate.state_transition import (
     StateTransitionService,
     InvalidTransitionError,
     TerminalStateError,
@@ -272,7 +272,7 @@ class TestAllowedTransitions:
 
     def test_done_transitions(self):
         """done can only transition to in_progress (reopen)."""
-        assert ALLOWED_TRANSITIONS["done"] == {"in_progress"}
+        assert ALLOWED_TRANSITIONS["done"] == {"in_progress", "archived"}
 
     def test_cancelled_no_transitions(self):
         """cancelled has no outgoing transitions."""

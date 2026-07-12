@@ -1,0 +1,13 @@
+version: ctg/v1
+
+suppressions:
+  # LARGE_MODULE suppressions - acceptable complexity for service modules
+  - rule_id: LARGE_MODULE
+    path: src/resolver.py
+    reason: "Task resolver with 23 resolution strategies. Strategy pattern refactoring planned when exceeds 30 strategies."
+    expiry: 2027-05-02
+
+  - rule_id: LARGE_MODULE
+    path: src/tracker_bridge.py
+    reason: "Tracker bridge consolidating 5 tracker backends. Split into backend-specific bridges when exceeds 900 lines."
+    expiry: 2027-05-02

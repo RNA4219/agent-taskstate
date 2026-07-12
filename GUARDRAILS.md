@@ -209,3 +209,10 @@ slo:
   test_coverage_min: 0.90
   change_failure_rate_max: 0.10
 -->
+
+## 1.1.0統合改修追補
+
+- canonical実装は `src/agent_taskstate/` に限定し、`src.cli`はDeprecationWarning付き再export shimとする。
+- typed_refは4セグメントcanonical、3セグメントはread-both/write-oneで扱う。
+- status変更は `state_transitions` とtasks.statusを同一transactionで更新する。
+- bundleは差分保存せず完全immutable snapshotとし、sources/diagnostics/raw/generator metadataを監査可能にする。

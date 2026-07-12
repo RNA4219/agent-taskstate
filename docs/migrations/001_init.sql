@@ -1,195 +1,46 @@
+-- 1.0.1 plural base schema contract.
+-- The executable runner creates the same tables with IF NOT EXISTS.
+-- Existing installations are extended by 002_1_1_0.sql.
 PRAGMA foreign_keys = ON;
 
-BEGIN;
-
-CREATE TABLE task (
-    id                    TEXT PRIMARY KEY,
-    title                 TEXT NOT NULL,
-    objective             TEXT,
-    scope                 TEXT,
-    description           TEXT,
-    status                TEXT NOT NULL CHECK (status IN (
-                            'proposed','ready','in_progress','blocked','review','done','cancelled'
-                          )),
-    priority              INTEGER NOT NULL DEFAULT 3 CHECK (priority BETWEEN 1 AND 5),
-    owner_type            TEXT CHECK (owner_type IN ('human','agent','system') OR owner_type IS NULL),
-    owner_id              TEXT,
-    parent_task_id        TEXT,
-    tracker_issue_ref     TEXT,
-    idempotency_key       TEXT,
-    note_id               TEXT,
-    trace_id              TEXT,
-    reply_target          TEXT,
-    reply_state           TEXT,
-    retry_count           INTEGER NOT NULL DEFAULT 0,
-    kestra_execution_id   TEXT,
-    original_task_id      TEXT,
-    trigger               TEXT,
-    reply_text            TEXT,
-    roadmap_request_json  TEXT,
-    created_at            TEXT NOT NULL,
-    updated_at            TEXT NOT NULL,
-    archived_at           TEXT,
-    FOREIGN KEY (parent_task_id) REFERENCES task(id)
+CREATE TABLE IF NOT EXISTS schema_version (
+  version INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  applied_at TEXT NOT NULL
 );
-
-CREATE TABLE task_state (
-    id                    TEXT PRIMARY KEY,
-    task_id               TEXT NOT NULL,
-    from_state            TEXT CHECK (from_state IN (
-                            'proposed','ready','in_progress','blocked','review','done','cancelled'
-                          ) OR from_state IS NULL),
-    to_state              TEXT NOT NULL CHECK (to_state IN (
-                            'proposed','ready','in_progress','blocked','review','done','cancelled'
-                          )),
-    reason                TEXT NOT NULL,
-    actor_type            TEXT NOT NULL CHECK (actor_type IN ('human','agent','system')),
-    actor_id              TEXT,
-    run_id                TEXT,
-    changed_at            TEXT NOT NULL,
-    FOREIGN KEY (task_id) REFERENCES task(id)
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY, parent_task_id TEXT, kind TEXT NOT NULL, title TEXT NOT NULL,
+  goal TEXT NOT NULL, status TEXT NOT NULL, priority TEXT NOT NULL,
+  owner_type TEXT NOT NULL, owner_id TEXT, idempotency_key TEXT, note_id TEXT,
+  trace_id TEXT, reply_target TEXT, reply_state TEXT, retry_count INTEGER NOT NULL DEFAULT 0,
+  kestra_execution_id TEXT, original_task_id TEXT, trigger TEXT, reply_text TEXT,
+  roadmap_request_json TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
-
-CREATE TABLE decision (
-    id                    TEXT PRIMARY KEY,
-    task_id               TEXT NOT NULL,
-    title                 TEXT NOT NULL,
-    summary               TEXT NOT NULL,
-    rationale             TEXT,
-    status                TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','superseded','withdrawn')),
-    decided_by_type       TEXT CHECK (decided_by_type IN ('human','agent','system') OR decided_by_type IS NULL),
-    decided_by_id         TEXT,
-    run_id                TEXT,
-    created_at            TEXT NOT NULL,
-    updated_at            TEXT NOT NULL,
-    FOREIGN KEY (task_id) REFERENCES task(id)
+CREATE TABLE IF NOT EXISTS task_states (
+  task_id TEXT PRIMARY KEY, revision INTEGER NOT NULL, current_step TEXT NOT NULL,
+  constraints_json TEXT NOT NULL, done_when_json TEXT NOT NULL, current_summary TEXT,
+  artifact_refs_json TEXT NOT NULL, evidence_refs_json TEXT NOT NULL, confidence TEXT,
+  context_policy_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
-
-CREATE TABLE decision_ref (
-    id                    TEXT PRIMARY KEY,
-    decision_id           TEXT NOT NULL,
-    ref_type              TEXT NOT NULL,
-    typed_ref             TEXT NOT NULL,
-    role                  TEXT NOT NULL CHECK (role IN ('support','input','output','related')),
-    created_at            TEXT NOT NULL,
-    FOREIGN KEY (decision_id) REFERENCES decision(id)
+CREATE TABLE IF NOT EXISTS decisions (
+  id TEXT PRIMARY KEY, task_id TEXT NOT NULL, summary TEXT NOT NULL, rationale TEXT,
+  status TEXT NOT NULL, confidence TEXT, evidence_refs_json TEXT NOT NULL,
+  supersedes_decision_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
-
-CREATE TABLE open_question (
-    id                    TEXT PRIMARY KEY,
-    task_id               TEXT NOT NULL,
-    question              TEXT NOT NULL,
-    status                TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','resolved','dropped','migrated')),
-    priority              INTEGER NOT NULL DEFAULT 3 CHECK (priority BETWEEN 1 AND 5),
-    resolution_note       TEXT,
-    resolved_at           TEXT,
-    created_at            TEXT NOT NULL,
-    updated_at            TEXT NOT NULL,
-    FOREIGN KEY (task_id) REFERENCES task(id)
+CREATE TABLE IF NOT EXISTS open_questions (
+  id TEXT PRIMARY KEY, task_id TEXT NOT NULL, question TEXT NOT NULL, priority TEXT NOT NULL,
+  status TEXT NOT NULL, answer TEXT, evidence_refs_json TEXT NOT NULL,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
-
-CREATE TABLE open_question_ref (
-    id                    TEXT PRIMARY KEY,
-    open_question_id      TEXT NOT NULL,
-    typed_ref             TEXT NOT NULL,
-    role                  TEXT NOT NULL DEFAULT 'related' CHECK (role IN ('related','blocking','evidence')),
-    created_at            TEXT NOT NULL,
-    FOREIGN KEY (open_question_id) REFERENCES open_question(id)
+CREATE TABLE IF NOT EXISTS runs (
+  id TEXT PRIMARY KEY, task_id TEXT NOT NULL, actor_type TEXT NOT NULL, actor_id TEXT,
+  run_type TEXT NOT NULL, status TEXT NOT NULL, input_ref TEXT, output_ref TEXT,
+  started_at TEXT NOT NULL, ended_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
-
-CREATE TABLE context_bundle (
-    id                    TEXT PRIMARY KEY,
-    task_id               TEXT NOT NULL,
-    purpose               TEXT NOT NULL CHECK (purpose IN (
-                            'continue_work','review_prepare','resume_after_block','decision_support','other'
-                          )),
-    rebuild_level         TEXT NOT NULL CHECK (rebuild_level IN ('L1','L2','L3')),
-    summary               TEXT,
-    state_snapshot_json   TEXT NOT NULL,
-    decision_digest_json  TEXT,
-    question_digest_json  TEXT,
-    diagnostics_json      TEXT,
-    raw_included          INTEGER NOT NULL DEFAULT 0 CHECK (raw_included IN (0,1)),
-    generator_version     TEXT,
-    generated_at          TEXT NOT NULL,
-    created_at            TEXT NOT NULL,
-    FOREIGN KEY (task_id) REFERENCES task(id)
+CREATE TABLE IF NOT EXISTS context_bundles (
+  id TEXT PRIMARY KEY, task_id TEXT NOT NULL, build_reason TEXT NOT NULL,
+  state_snapshot_json TEXT NOT NULL, included_decision_refs_json TEXT NOT NULL,
+  included_open_question_refs_json TEXT NOT NULL, included_artifact_refs_json TEXT NOT NULL,
+  included_evidence_refs_json TEXT NOT NULL, expected_output_schema_json TEXT NOT NULL,
+  created_at TEXT NOT NULL, metadata_json TEXT
 );
-
-CREATE TABLE context_bundle_source (
-    id                    TEXT PRIMARY KEY,
-    context_bundle_id     TEXT NOT NULL,
-    typed_ref             TEXT NOT NULL,
-    source_kind           TEXT NOT NULL,
-    selected_raw          INTEGER NOT NULL DEFAULT 0 CHECK (selected_raw IN (0,1)),
-    metadata_json         TEXT,
-    created_at            TEXT NOT NULL,
-    FOREIGN KEY (context_bundle_id) REFERENCES context_bundle(id)
-);
-
-CREATE TABLE run (
-    id                    TEXT PRIMARY KEY,
-    task_id               TEXT,
-    context_bundle_id     TEXT,
-    run_type              TEXT NOT NULL CHECK (run_type IN (
-                            'plan','execute','review','rebuild','sync','other'
-                          )),
-    actor_type            TEXT NOT NULL CHECK (actor_type IN ('human','agent','system')),
-    actor_id              TEXT,
-    status                TEXT NOT NULL CHECK (status IN ('running','succeeded','failed','cancelled')),
-    input_summary         TEXT,
-    output_summary        TEXT,
-    error_message         TEXT,
-    started_at            TEXT NOT NULL,
-    finished_at           TEXT,
-    created_at            TEXT NOT NULL,
-    FOREIGN KEY (task_id) REFERENCES task(id),
-    FOREIGN KEY (context_bundle_id) REFERENCES context_bundle(id),
-    CHECK (task_id IS NOT NULL OR context_bundle_id IS NOT NULL)
-);
-
-CREATE TABLE task_link (
-    id                    TEXT PRIMARY KEY,
-    task_id               TEXT NOT NULL,
-    typed_ref             TEXT NOT NULL,
-    link_type             TEXT NOT NULL,
-    role                  TEXT NOT NULL CHECK (role IN ('input','output','dependency','context','related')),
-    created_at            TEXT NOT NULL,
-    FOREIGN KEY (task_id) REFERENCES task(id)
-);
-
-CREATE INDEX idx_task_status ON task(status);
-CREATE INDEX idx_task_owner ON task(owner_type, owner_id);
-CREATE INDEX idx_task_parent ON task(parent_task_id);
-CREATE INDEX idx_task_tracker_issue_ref ON task(tracker_issue_ref);
-CREATE INDEX idx_task_idempotency_key ON task(idempotency_key);
-CREATE INDEX idx_task_trace_id ON task(trace_id);
-CREATE INDEX idx_task_reply_state ON task(reply_state);
-CREATE INDEX idx_task_updated_at ON task(updated_at);
-CREATE INDEX idx_task_original_task_id ON task(original_task_id);
-
-CREATE INDEX idx_task_state_task_changed ON task_state(task_id, changed_at DESC);
-CREATE INDEX idx_task_state_task_to_state ON task_state(task_id, to_state);
-
-CREATE INDEX idx_decision_task_created ON decision(task_id, created_at DESC);
-CREATE INDEX idx_decision_status ON decision(status);
-CREATE INDEX idx_decision_ref_decision ON decision_ref(decision_id);
-CREATE INDEX idx_decision_ref_typed_ref ON decision_ref(typed_ref);
-
-CREATE INDEX idx_open_question_task_status ON open_question(task_id, status);
-CREATE INDEX idx_open_question_priority ON open_question(priority);
-CREATE INDEX idx_open_question_ref_question ON open_question_ref(open_question_id);
-
-CREATE INDEX idx_context_bundle_task_generated ON context_bundle(task_id, generated_at DESC);
-CREATE INDEX idx_context_bundle_purpose ON context_bundle(purpose);
-CREATE INDEX idx_context_bundle_source_bundle ON context_bundle_source(context_bundle_id);
-CREATE INDEX idx_context_bundle_source_ref ON context_bundle_source(typed_ref);
-
-CREATE INDEX idx_run_task_started ON run(task_id, started_at DESC);
-CREATE INDEX idx_run_bundle ON run(context_bundle_id);
-CREATE INDEX idx_run_status ON run(status);
-
-CREATE INDEX idx_task_link_task_type ON task_link(task_id, link_type);
-CREATE INDEX idx_task_link_ref ON task_link(typed_ref);
-
-COMMIT;

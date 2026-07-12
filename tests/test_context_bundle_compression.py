@@ -1,11 +1,11 @@
-"""Tests for ContextBundle compression and caching."""
+﻿"""Tests for ContextBundle compression and caching."""
 
 import json
 import pytest
 import sqlite3
 import tempfile
 
-from src.context_bundle import (
+from agent_taskstate.context_bundle import (
     ContextBundle,
     ContextBundleService,
     BundleSource,
@@ -309,12 +309,12 @@ class TestDifferentialBundle:
             use_diff=True,
         )
 
-        # The second bundle should contain only the changed field
+        # 1.1.0 always stores a complete immutable snapshot
         snapshot = decompress_json(
             bundle2.state_snapshot_json,
             bundle2._state_snapshot_compressed
         )
-        assert snapshot == {"status": "review"}
+        assert snapshot == {"status": "review", "goal": "Build feature"}
 
     def test_create_bundle_diff_no_previous(self, service):
         """use_diff with no previous bundle uses full snapshot."""

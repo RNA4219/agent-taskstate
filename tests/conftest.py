@@ -1,4 +1,4 @@
-"""
+﻿"""
 agent-taskstate Test Configuration
 
 pytest fixtures for testing agent-taskstate CLI.

@@ -473,3 +473,10 @@ black src/ tests/
 
 - **実施順を崩さないこと**: P1 → P2 → P3 → P4 の順序で進める
 - **typed_ref統一前の並行開発は危険**: 各PJを並行で深く進める前に、必ずtyped_ref統一を完了させること
+
+## 1.1.0統合改修追補
+
+- canonical実装は `src/agent_taskstate/` に限定し、`src.cli`はDeprecationWarning付き再export shimとする。
+- typed_refは4セグメントcanonical、3セグメントはread-both/write-oneで扱う。
+- status変更は `state_transitions` とtasks.statusを同一transactionで更新する。
+- bundleは差分保存せず完全immutable snapshotとし、sources/diagnostics/raw/generator metadataを監査可能にする。

@@ -1,12 +1,7 @@
-# Default State Transition Configuration
-#
-# This file defines allowed state transitions for tasks.
-# Can be customized per workflow by placing a transitions.yaml
-# in the project directory.
-
 workflow: default
 
 statuses:
+  - draft
   - proposed
   - ready
   - in_progress
@@ -14,50 +9,41 @@ statuses:
   - review
   - done
   - cancelled
+  - archived
 
 terminal_states:
   - done
   - cancelled
+  - archived
 
 transitions:
+  draft:
+    allowed: [ready, archived]
   proposed:
-    allowed:
-      - ready
-      - cancelled
+    allowed: [ready, cancelled]
   ready:
-    allowed:
-      - in_progress
-      - cancelled
+    allowed: [in_progress, cancelled]
   in_progress:
-    allowed:
-      - blocked
-      - review
-      - cancelled
+    allowed: [blocked, review, cancelled]
   blocked:
-    allowed:
-      - in_progress
-      - cancelled
+    allowed: [in_progress, cancelled]
   review:
-    allowed:
-      - in_progress
-      - done
-      - cancelled
+    allowed: [in_progress, done, cancelled]
   done:
-    allowed:
-      - in_progress  # reopen with reason
+    allowed: [in_progress, archived]
   cancelled:
-    allowed: []      # terminal
+    allowed: []
+  archived:
+    allowed: []
 
 reason_required:
-  # Transitions that require a reason
   - from: done
     to: in_progress
   - from: "*"
     to: done
   - from: "*"
     to: cancelled
+  - from: "*"
+    to: archived
 
-actor_types:
-  - human
-  - agent
-  - system
+actor_types: [human, agent, system]

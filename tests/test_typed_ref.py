@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for typed_ref module.
 
 Covers:
@@ -10,7 +10,7 @@ Covers:
 
 import pytest
 
-from src.typed_ref import (
+from agent_taskstate.typed_ref import (
     TypedRef,
     canonicalize_ref,
     format_ref,

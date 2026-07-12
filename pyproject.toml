@@ -4,43 +4,58 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-taskstate"
-version = "1.0.1"
+version = "1.1.0"
 description = "SQLite-backed CLI for long-running task state management"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
-authors = [
-    {name = "agent-taskstate-team"}
-]
+requires-python = ">=3.10"
+authors = [{name = "agent-taskstate-team"}]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Software Development",
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development",
 ]
 
 [project.scripts]
-agent-taskstate = "src.cli:main"
+agent-taskstate = "agent_taskstate.cli:main"
 
 [project.optional-dependencies]
+github = ["PyGithub>=2.1"]
+jira = ["jira>=3.8"]
+tracker = ["PyGithub>=2.1", "jira>=3.8"]
 dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "ruff>=0.6",
+  "mypy>=1.10",
+  "build>=1.2",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["agent_taskstate*", "agent_taskstate_workflow_plugin*", "cli*"]
 
 [tool.setuptools.package-data]
-cli = ["py.typed"]
+agent_taskstate = ["py.typed"]
+"cli" = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = [".git", ".pytest_cache", "__pycache__", "workflow-cookbook"]
-addopts = "--cov=src --cov-report=term-missing"
+addopts = "--cov=agent_taskstate --cov-report=term-missing"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = ["src/cli"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true

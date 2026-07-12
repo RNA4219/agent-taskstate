@@ -1,4 +1,4 @@
-"""Tests for CLI main entry point and parser."""
+﻿"""Tests for CLI main entry point and parser."""
 
 import argparse
 import json
@@ -7,12 +7,12 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-from cli import main, AppContext
-from cli.parser import build_parser
-from cli.db import connect, init_db, SCHEMA_SQL
-from cli.errors import AgentTaskstateError, NotFoundError, ConflictError
-from cli.utils import json_ok, json_error, now_utc, gen_id
-from cli.constants import (
+from agent_taskstate.cli import main, AppContext
+from agent_taskstate.cli.parser import build_parser
+from agent_taskstate.cli.db import connect, init_db, SCHEMA_SQL
+from agent_taskstate.cli.errors import AgentTaskstateError, NotFoundError, ConflictError
+from agent_taskstate.cli.utils import json_ok, json_error, now_utc, gen_id
+from agent_taskstate.cli.constants import (
     APP_NAME, DEFAULT_DB_PATH, TASK_KINDS, TASK_STATUSES,
     TASK_PRIORITIES, OWNER_TYPES, REPLY_STATES, ALLOWED_TRANSITIONS,
 )

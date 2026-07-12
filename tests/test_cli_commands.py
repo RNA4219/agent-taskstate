@@ -1,13 +1,13 @@
-"""Tests for CLI state, decision, question, run, context, export commands."""
+﻿"""Tests for CLI state, decision, question, run, context, export commands."""
 
 import json
 import pytest
 import tempfile
 from pathlib import Path
 
-from cli import main
-from cli.db import connect, init_db
-from cli.utils import now_utc
+from agent_taskstate.cli import main
+from agent_taskstate.cli.db import connect, init_db
+from agent_taskstate.cli.utils import now_utc
 
 
 @pytest.fixture

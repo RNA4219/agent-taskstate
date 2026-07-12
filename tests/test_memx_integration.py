@@ -1,10 +1,10 @@
-"""
+﻿"""
 Integration tests for typed_ref between agent-taskstate and memx-core.
 
 Tests cross-domain ref resolution scenarios.
 """
 
-from src.typed_ref import (
+from agent_taskstate.typed_ref import (
     parse_ref,
     format_ref,
     is_known_domain,
@@ -12,7 +12,7 @@ from src.typed_ref import (
     agent_taskstate_ref,
     memx_ref,
 )
-from src.resolver import (
+from agent_taskstate.resolver import (
     ContextRebuildResolver,
     AgentTaskstateLocalResolver,
 )

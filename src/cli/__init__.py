@@ -1,48 +1,21 @@
-"""
-CLI Package
-
-agent-taskstate command-line interface.
-"""
+"""Deprecated compatibility shim for agent_taskstate.cli."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import warnings
 
-from .constants import APP_NAME, DEFAULT_DB_PATH
+warnings.warn(
+    "src.cli is deprecated; import agent_taskstate.cli instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
-
-@dataclass
-class AppContext:
-    """CLI application context."""
-    db_path: str
-
-
-def main(argv: list[str] | None = None) -> int:
-    """CLI entry point."""
-    import json
-    import sqlite3
-
-    from .errors import AgentTaskstateError
-    from .parser import build_parser
-    from .utils import json_error
-
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if not hasattr(args, "func"):
-        parser.print_help()
-        return 2
-    ctx = AppContext(db_path=args.db)
-    try:
-        return int(args.func(ctx, args))
-    except AgentTaskstateError as e:
-        return json_error(e.code, str(e))
-    except sqlite3.IntegrityError as e:
-        return json_error("validation_error", f"sqlite integrity error: {e}")
-    except json.JSONDecodeError as e:
-        return json_error("validation_error", f"invalid JSON: {e}")
-    except Exception as e:
-        return json_error("validation_error", f"unexpected error: {e}")
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+from agent_taskstate.cli import AppContext, main
+from agent_taskstate.cli.constants import *
+from agent_taskstate.cli.db import *
+from agent_taskstate.cli.errors import *
+from agent_taskstate.cli.fetch import *
+from agent_taskstate.cli.models import *
+from agent_taskstate.cli.utils import *
+from agent_taskstate.cli.validation import *
+from agent_taskstate.cli.commands import *

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Test cases for Open Question Management.
 
 Corresponds to: docs/tests/question.feature
