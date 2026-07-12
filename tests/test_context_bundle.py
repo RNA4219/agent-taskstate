@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for context_bundle module.
 
 Covers:
@@ -12,7 +12,7 @@ import sqlite3
 
 import pytest
 
-from src.context_bundle import (
+from agent_taskstate.context_bundle import (
     ContextBundleService,
     create_bundle_tables,
     PURPOSE_TYPES,

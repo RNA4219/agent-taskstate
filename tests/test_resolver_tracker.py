@@ -1,10 +1,10 @@
-"""Tests for TrackerResolver and MemxResolver."""
+﻿"""Tests for TrackerResolver and MemxResolver."""
 
 import pytest
 import sqlite3
 from pathlib import Path
 
-from src.resolver import (
+from agent_taskstate.resolver import (
     ContextRebuildResolver,
     TrackerResolver,
     MemxResolver,
@@ -13,8 +13,8 @@ from src.resolver import (
     ResolverDiagnostics,
     AgentTaskstateLocalResolver,
 )
-from src.typed_ref import tracker_ref, memx_ref, agent_taskstate_ref, format_ref, parse_ref
-from src.tracker_bridge import (
+from agent_taskstate.typed_ref import tracker_ref, memx_ref, agent_taskstate_ref, format_ref, parse_ref
+from agent_taskstate.tracker_bridge import (
     TrackerBridgeService,
     MockTrackerAdapter,
     create_tracker_tables,
@@ -183,7 +183,8 @@ class TestTrackerBridgeService:
         conn_rec = service.create_connection(
             name="github-main",
             provider="github",
-            config={"token": "test"},
+            config={"url": "https://example.invalid"},
+            secret_env={"token": "GITHUB_TOKEN"},
         )
         assert conn_rec is not None
         assert conn_rec.name == "github-main"

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for resolver module.
 
 Covers:
@@ -11,7 +11,7 @@ Covers:
 import pytest
 import sqlite3
 
-from src.resolver import (
+from agent_taskstate.resolver import (
     ContextRebuildResolver,
     ResolveStatus,
     ResolvedRef,

@@ -1,4 +1,4 @@
-# Acceptance Index
+﻿# Acceptance Index
 
 ## Summary
 
@@ -28,3 +28,4 @@ acceptance records.
 - Acceptance records are optional but recommended for major changes.
 - Cross-repo integration tests may reference workflow-cookbook acceptance
   records.
+- [1.1.0 integration](1.1.0-integration.md)

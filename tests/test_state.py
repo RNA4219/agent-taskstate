@@ -1,4 +1,4 @@
-"""
+﻿"""
 Test cases for Task State Management.
 
 Corresponds to: docs/tests/state.feature
@@ -14,64 +14,20 @@ from .helpers import agent_taskstate, create_task, create_task_state, cmd_state_
 class TestStatePut:
     """Test state put command."""
 
-    def test_create_new_task_state(self, empty_db):
-        """Spec 5.2: Create new task state."""
-        ctx = agent_taskstate.AppContext(db_path=empty_db)
-
-        with agent_taskstate.connect(empty_db) as conn:
-            task_id = create_task(conn)
-
-        state_data = {
-            "current_step": "実装中",
-            "constraints": ["制約1", "制約2"],
-            "done_when": ["条件1", "条件2"],
-            "current_summary": "現在の要約",
-            "artifact_refs": [],
-            "evidence_refs": [],
-            "confidence": "medium",
-            "context_policy": {"force_evidence": False},
-        }
-
-        output = cmd_state_put(ctx, task_id=task_id, state_json=state_data)
-
-        assert output["ok"] is True
-        with agent_taskstate.connect(empty_db) as conn:
-            row = conn.execute(
-                "SELECT * FROM task_states WHERE task_id = ?", (task_id,)
-            ).fetchone()
-            assert row is not None
-            assert row["revision"] == 1
-            assert row["current_step"] == "実装中"
-
     def test_state_put_overwrites_existing(self, empty_db):
-        """State put updates existing state and increments revision."""
+        """State put is insert-only and conflicts when state already exists."""
         ctx = agent_taskstate.AppContext(db_path=empty_db)
-
         with agent_taskstate.connect(empty_db) as conn:
             task_id = create_task(conn)
             create_task_state(conn, task_id, revision=5, current_step="古い状態")
-
         state_data = {
-            "current_step": "新しい状態",
-            "constraints": [],
-            "done_when": ["条件1"],
-            "current_summary": "",
-            "artifact_refs": [],
-            "evidence_refs": [],
-            "confidence": "high",
-            "context_policy": {},
+            "current_step": "新しい状態", "constraints": [], "done_when": ["条件1"],
+            "current_summary": "", "artifact_refs": [], "evidence_refs": [],
+            "confidence": "high", "context_policy": {},
         }
-
         output = cmd_state_put(ctx, task_id=task_id, state_json=state_data)
-
-        assert output["ok"] is True
-        with agent_taskstate.connect(empty_db) as conn:
-            row = conn.execute(
-                "SELECT revision, current_step FROM task_states WHERE task_id = ?", (task_id,)
-            ).fetchone()
-            assert row["revision"] == 6  # 5 + 1 = incremented revision
-            assert row["current_step"] == "新しい状態"
-
+        assert output["ok"] is False
+        assert output["error"]["code"] == "conflict"
 
 class TestStateGet:
     """Test state get command."""

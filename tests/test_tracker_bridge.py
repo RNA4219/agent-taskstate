@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for tracker_bridge module.
 
 Covers:
@@ -13,7 +13,7 @@ import sqlite3
 
 import pytest
 
-from src.tracker_bridge import (
+from agent_taskstate.tracker_bridge import (
     LinkRole,
     MockTrackerAdapter,
     SyncDirection,

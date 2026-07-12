@@ -1,4 +1,4 @@
-"""
+﻿"""
 Test cases for Decision Management.
 
 Corresponds to: docs/tests/decision.feature

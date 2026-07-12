@@ -1,4 +1,4 @@
-"""
+﻿"""
 Integration tests for complete workflows.
 
 Tests the full flow from task creation to completion.
@@ -184,7 +184,7 @@ class TestCompleteTaskLifecycle:
             "context_policy": {},
         }
         # Mark all done_when as complete by updating state
-        output = cmd_state_put(ctx, task_id=task_id, state_json=state_data)
+        output = cmd_state_patch(ctx, task_id=task_id, expected_revision=current_revision, patch_json=state_data)
         assert output["ok"] is True
 
         output = cmd_task_set_status(
@@ -459,8 +459,8 @@ class TestTypedRefValidation:
             "summary": "Test decision",
             "confidence": "high",
             "evidence_refs": [
-                "memx:evidence:01HABC123",
-                "memx:evidence:01HDEF456",
+                "memx:evidence:local:01HABC123",
+                "memx:evidence:local:01HDEF456",
             ],
         }
         output = cmd_decision_add(ctx, task_id=task_id, decision_json=decision_data)
@@ -474,7 +474,7 @@ class TestTypedRefValidation:
             ).fetchone()
             refs = json.loads(row["evidence_refs_json"])
             assert len(refs) == 2
-            assert refs[0] == "memx:evidence:01HABC123"
+            assert refs[0] == "memx:evidence:local:01HABC123"
 
     def test_run_with_typed_refs(self, empty_db):
         """Test run with typed_ref input/output."""
@@ -490,7 +490,7 @@ class TestTypedRefValidation:
             run_type="execute",
             actor_type="agent",
             actor_id="agent-001",
-            input_ref="agent-taskstate:context_bundle:01HBUNDLE001",
+            input_ref="agent-taskstate:context_bundle:local:01HBUNDLE001",
         )
         assert output["ok"] is True
         run_id = output["data"]["id"]
@@ -500,7 +500,7 @@ class TestTypedRefValidation:
             ctx,
             run_id=run_id,
             status="succeeded",
-            output_ref="memx:artifact:01HARTIFACT001",
+            output_ref="memx:artifact:local:01HARTIFACT001",
         )
         assert output["ok"] is True
 
@@ -510,8 +510,8 @@ class TestTypedRefValidation:
                 "SELECT input_ref, output_ref FROM runs WHERE id = ?",
                 (run_id,),
             ).fetchone()
-            assert row["input_ref"] == "agent-taskstate:context_bundle:01HBUNDLE001"
-            assert row["output_ref"] == "memx:artifact:01HARTIFACT001"
+            assert row["input_ref"] == "agent-taskstate:context_bundle:local:01HBUNDLE001"
+            assert row["output_ref"] == "memx:artifact:local:01HARTIFACT001"
 
 
 class TestSubtaskCreation:

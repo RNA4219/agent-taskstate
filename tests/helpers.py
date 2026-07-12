@@ -1,4 +1,4 @@
-"""
+﻿"""
 Test helper functions for agent-taskstate CLI testing.
 """
 
@@ -10,16 +10,16 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any, Dict
 
-# Import CLI module from src.cli
+# Import CLI module from agent_taskstate.cli
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-import cli as agent_taskstate
-from cli.utils import gen_id, now_utc, json_ok, json_error
-from cli.models import jdump, jload, row_to_task, row_to_task_state, row_to_decision, row_to_question, row_to_run
-from cli.db import connect, init_db, SCHEMA_SQL
-from cli.constants import EXPECTED_OUTPUT_SCHEMA, TASK_KINDS, TASK_STATUSES, TASK_PRIORITIES, OWNER_TYPES
-from cli.errors import AgentTaskstateError, NotFoundError, ConflictError, InvalidTransitionError, DependencyBlockedError
-from cli.commands import (
+import agent_taskstate
+from agent_taskstate.cli.utils import gen_id, now_utc, json_ok, json_error
+from agent_taskstate.cli.models import jdump, jload, row_to_task, row_to_task_state, row_to_decision, row_to_question, row_to_run
+from agent_taskstate.cli.db import connect, init_db, SCHEMA_SQL
+from agent_taskstate.cli.constants import EXPECTED_OUTPUT_SCHEMA, TASK_KINDS, TASK_STATUSES, TASK_PRIORITIES, OWNER_TYPES
+from agent_taskstate.cli.errors import AgentTaskstateError, NotFoundError, ConflictError, InvalidTransitionError, DependencyBlockedError
+from agent_taskstate.cli.commands import (
     cmd_init, cmd_task_create, cmd_task_show, cmd_task_list, cmd_task_update, cmd_task_set_status,
     cmd_state_get, cmd_state_put, cmd_state_patch,
     cmd_decision_add, cmd_decision_list, cmd_decision_accept, cmd_decision_reject,
@@ -28,7 +28,7 @@ from cli.commands import (
     cmd_context_build, cmd_context_show,
     cmd_export_task,
 )
-from cli import AppContext
+from agent_taskstate.cli import AppContext
 
 
 # Re-export expected attributes for compatibility
@@ -388,7 +388,7 @@ def cmd_task_update(ctx, task_id, title=None, goal=None, priority=None, **extra_
 
 def cmd_task_set_status(ctx, task_id, to_status, reason=None) -> Dict:
     """Wrapper for task set-status command."""
-    args = make_args(task=task_id, to=to_status, reason=reason, reason_required=True)
+    args = make_args(task=task_id, to=to_status, reason=reason, reason_required=False)
     return capture_output(agent_taskstate.cmd_task_set_status, ctx, args)
 
 

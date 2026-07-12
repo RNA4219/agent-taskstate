@@ -1,72 +1,31 @@
-# agent-taskstate Agent README
+# agent-taskstate
 
-Version: **1.0.1** | [CHANGELOG](docs/CHANGELOG.md)
+Version: **1.1.0**
 
-人間向けの概要は [README-human.md](README-human.md) を参照してください。
+SQLite-backed task state CLI for durable task recovery. The canonical Python
+package is `agent_taskstate`; `src.cli` remains a one-minor deprecation shim.
 
-## 同梱 Skill
+## 1.1.0 contract
 
-- Skill 名: `$agent-taskstate-maintainer`
-- 格納先: `skills/agent-taskstate-maintainer/`
-- 入口: `skills/agent-taskstate-maintainer/SKILL.md`
+- Python 3.10--3.13; console entry point: `agent-taskstate = agent_taskstate.cli:main`
+- Existing plural tables are preserved and migrated transactionally.
+- `tasks` status changes use `StateTransitionService` and append to `state_transitions`.
+- `task history` returns chronological JSON; repeated status updates are no-ops.
+- `state put` is insert-only; `state patch` is an atomic revision-guarded update.
+- Context rebuild stores a complete immutable snapshot, audited source rows, raw flags,
+  generator metadata, and resolver diagnostics.
+- New refs are `<domain>:<entity_type>:<provider>:<entity_id>`; legacy 3-segment
+  refs are read-compatible and canonicalized on write.
+- Tracker outbound operations exist only as explicit `tracker comment` and
+  `tracker status` commands. Secrets are represented by environment variable names.
 
-## 最初に読む順番
+## Verification
 
-| 順番 | ファイル |
-|------|----------|
-| 1 | `skills/agent-taskstate-maintainer/SKILL.md` |
-| 2 | `BLUEPRINT.md` |
-| 3 | `docs/kv-priority-roadmap/` |
-
-必要になった時だけ参照:
-`GUARDRAILS.md` / `docs/src/agent-taskstate_mvp_spec.md` / `docs/src/agent-taskstate_sqlite_spec.md` / `docs/src/agent-taskstate_phase2_pulse_kestra_spec.md` / `docs/contracts/typed-ref.md` / `README-human.md`
-
-## 実施ルール
-
-| 項目 | ルール |
-|------|--------|
-| 優先順 | `P1 -> P2 -> P3 -> P4` を崩さない |
-| 正本 | 内部 task state の正本は `agent-taskstate`。会話履歴を正本にしない |
-| typed_ref | 新規出力は `<domain>:<entity_type>:<provider>:<entity_id>` の 4 セグメント canonical |
-| 監査性 | `context_bundle` の raw inclusion、diagnostics、generator metadata を落とさない |
-| 変更単位 | 振る舞い変更時は実装、テスト、schema/doc を同時に更新する |
-
-## 検証
-
-```bash
-pytest -q
+```powershell
+uv run pytest -q
+python -m build
+agent-taskstate --help
 ```
 
-## Acceptance
-
-検収記録の正本は `docs/acceptance/` です。
-
-| 項目 | 参照 |
-|------|------|
-| Acceptance 一覧 | [docs/acceptance/INDEX.md](docs/acceptance/INDEX.md) |
-| 作成方法 | [docs/acceptance/README.md](docs/acceptance/README.md) |
-| Template | [docs/acceptance/ACCEPTANCE_TEMPLATE.md](docs/acceptance/ACCEPTANCE_TEMPLATE.md) |
-
-重大な変更や release 判定前に acceptance record を作成すること。
-
-## 参照
-
-- `docs/RUNBOOK.md`
-- `docs/EVALUATION.md`
-- `docs/CHECKLISTS.md`
-- `docs/src/agent-taskstate_mvp_spec.md`
-- `docs/src/agent-taskstate_sqlite_spec.md`
-- `docs/src/agent-taskstate_phase2_pulse_kestra_spec.md`
-- `docs/schema/agent-taskstate.sql`
-- `docs/contracts/typed-ref.md`
-
-## workflow-cookbook plugin
-
-- package: `agent_taskstate_workflow_plugin/`
-- factory: `agent_taskstate_workflow_plugin.plugin:create_plugin`
-- capabilities:
-  - `task_state.sync`
-  - `acceptance.index`
-- options:
-  - `require_acceptance_for_done` (`false` by default): `done` task に acceptance
-    record が無い場合、error ではなく warning として返す
+仕様正本は `docs/src/`、DB正本は `docs/schema/agent-taskstate.sql`、
+検収記録は `docs/acceptance/` です。
